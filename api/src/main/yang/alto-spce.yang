@@ -7,7 +7,7 @@ module alto-spce {
 
     organization "SNLab.";
     contact "Jensen Zhang <jingxuan.zhang@gmail.com>";
-    
+
     revision "2015-11-06" {
         description "Initial revision of alto-spce model. The model is based
         on PCEP (https://tools.ietf.org/rfc/rfc5440.txt) but with simplifications.
@@ -28,16 +28,16 @@ module alto-spce {
             enum hopcount;
         }
     }
-    
+
     rpc alto-spce-setup {
         description "Given the endpoints, this service computes a path
            satisfying the constraints; among those satisfying the constraints, 
            it computes the one with the best object metrics. If a path is 
            found, the service will setup the path by installing flow rules 
            in FRM. This service does not handle the complexity of re-route.";
-           
+
         input {
-            containter endpoints {
+            container endpoints {
                 leaf src {
                     type inet:ipv4-address;
                     mandatory true;
@@ -57,36 +57,36 @@ module alto-spce {
                     type alto-spce-metric;
                 }
                 leaf min {
-                    type float;
+                    type uint64;
                     description "We use min and max to allow more flexible range spec.";
                 }
                 leaf max {
-                    type float;
+                    type uint64;
                 }
-            }            
+            }
         }
-        
+
         output {
            leaf path {
-            type string;
+               type string;
            }
            leaf error-code {
-             type error-code-type;
+               type error-code-type;
            }
         }
     }
-    
-    rpc alto-spce-remove {
-       input {
-           leaf path {
-             type string;
-           }
-       }
 
-       output {
-           leaf error-code {
-             type error-code-type;
-           }
-       }
+    rpc alto-spce-remove {
+        input {
+            leaf path {
+                type string;
+            }
+        }
+
+        output {
+            leaf error-code {
+                type error-code-type;
+            }
+        }
     }
 }

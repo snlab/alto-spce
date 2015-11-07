@@ -12,7 +12,7 @@ module network-tracker {
 
         input {
             leaf tp-id {
-                type uint64;
+                type string;
             }
         }
 
@@ -28,7 +28,7 @@ module network-tracker {
 
         input {
             leaf tp-id {
-                type uint64;
+                type string;
             }
         }
 
@@ -44,7 +44,7 @@ module network-tracker {
 
         input {
             leaf tp-id {
-                type uint64;
+                type string;
             }
         }
 

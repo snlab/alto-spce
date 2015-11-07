@@ -29,9 +29,11 @@ import org.opendaylight.yangtools.concepts.ListenerRegistration;
 import org.opendaylight.yangtools.yang.binding.DataObject;
 import org.opendaylight.yangtools.yang.binding.InstanceIdentifier;
 import org.opendaylight.yangtools.yang.common.RpcResult;
+import org.opendaylight.yangtools.yang.common.RpcResultBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.math.BigInteger;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -236,16 +238,28 @@ public class NetworkPortStatisticsServiceImpl implements NetworkPortStatisticsSe
 
     @Override
     public Future<RpcResult<AltoSpceGetRxSpeedOutput>> altoSpceGetRxSpeed(AltoSpceGetRxSpeedInput input) {
-        return null;
+        String tpId = input.getTpId();
+        AltoSpceGetRxSpeedOutput output = new AltoSpceGetRxSpeedOutputBuilder()
+                .setSpeed(BigInteger.valueOf(getCurrentRxSpeed(tpId, Metric.BITSPERSECOND)))
+                .build();
+        return RpcResultBuilder.success(output).buildFuture();
     }
 
     @Override
     public Future<RpcResult<AltoSpceGetTxBandwidthOutput>> altoSpceGetTxBandwidth(AltoSpceGetTxBandwidthInput input) {
-        return null;
+        String tpId = input.getTpId();
+        AltoSpceGetTxBandwidthOutput output = new AltoSpceGetTxBandwidthOutputBuilder()
+                .setSpeed(BigInteger.valueOf(getAvailableTxBandwidth(tpId, null)))
+                .build();
+        return RpcResultBuilder.success(output).buildFuture();
     }
 
     @Override
     public Future<RpcResult<AltoSpceGetTxSpeedOutput>> altoSpceGetTxSpeed(AltoSpceGetTxSpeedInput input) {
-        return null;
+        String tpId = input.getTpId();
+        AltoSpceGetTxSpeedOutput output = new AltoSpceGetTxSpeedOutputBuilder()
+                .setSpeed(BigInteger.valueOf(getCurrentTxSpeed(tpId, Metric.BITSPERSECOND)))
+                .build();
+        return RpcResultBuilder.success(output).buildFuture();
     }
 }

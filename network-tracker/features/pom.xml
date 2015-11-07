@@ -28,6 +28,7 @@ and is available at http://www.eclipse.org/legal/epl-v10.html INTERNAL
     <yangtools.version>0.8.0-SNAPSHOT</yangtools.version>
     <dlux.version>0.3.0-SNAPSHOT</dlux.version>
     <configfile.directory>etc/opendaylight/karaf</configfile.directory>
+    <l2switch.version>0.3.0-SNAPSHOT</l2switch.version>
   </properties>
   <dependencyManagement>
     <dependencies>

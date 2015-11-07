@@ -16,6 +16,9 @@ and is available at http://www.eclipse.org/legal/epl-v10.html
     <relativePath/>
   </parent>
 
+  <properties>
+    <l2switch.version>0.3.0-SNAPSHOT</l2switch.version>
+  </properties>
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.opendaylight.alto.spce.network</groupId>
   <artifactId>network-tracker-impl</artifactId>
@@ -39,6 +42,39 @@ and is available at http://www.eclipse.org/legal/epl-v10.html
       <groupId>org.mockito</groupId>
       <artifactId>mockito-all</artifactId>
       <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.opendaylight.controller.model</groupId>
+      <artifactId>model-inventory</artifactId>
+      <type>jar</type>
+    </dependency>
+
+    <dependency>
+      <groupId>org.opendaylight.controller.model</groupId>
+      <artifactId>model-inventory</artifactId>
+      <type>jar</type>
+    </dependency>
+
+    <dependency>
+      <groupId>org.opendaylight.l2switch.addresstracker</groupId>
+      <artifactId>addresstracker-model</artifactId>
+      <version>${l2switch.version}</version>
+      <type>jar</type>
+    </dependency>
+
+    <dependency>
+      <groupId>org.opendaylight.l2switch.hosttracker</groupId>
+      <artifactId>hosttracker-model</artifactId>
+      <version>${l2switch.version}</version>
+      <type>jar</type>
+    </dependency>
+
+    <dependency>
+      <groupId>org.opendaylight.l2switch.loopremover</groupId>
+      <artifactId>loopremover-impl</artifactId>
+      <version>${l2switch.version}</version>
+      <type>jar</type>
     </dependency>
   </dependencies>
 

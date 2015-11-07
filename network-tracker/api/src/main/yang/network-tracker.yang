@@ -3,7 +3,7 @@ module network-tracker {
     namespace "urn:opendaylight:params:xml:ns:yang:network-tracker";
     prefix "network-tracker";
 
-    revision "2015-01-05" {
+    revision "2015-11-07" {
         description "Initial revision of network-tracker model";
     }
 }

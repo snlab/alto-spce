@@ -90,5 +90,25 @@ public class InstanceIdentifierUtils {
                 .child(Link.class, new LinkKey(new LinkId(linkId)))
                 .build();
     }
+
+    /**
+     * @param nodeConnectorId
+     * @return iid of {@link FlowCapableNodeConnector}.
+     */
+    public static InstanceIdentifier<FlowCapableNodeConnector> flowCapableNodeConnector(String nodeConnectorId) {
+        String nodeId = extractNodeId(nodeConnectorId);
+        return InstanceIdentifier
+                .builder(Nodes.class)
+                .child(org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.nodes.Node.class,
+                        new NodeKey(new NodeId(nodeId)))
+                .child(NodeConnector.class, new NodeConnectorKey(new NodeConnectorId(nodeConnectorId)))
+                .augmentation(FlowCapableNodeConnector.class)
+                .build();
+    }
+
+    public static String extractNodeId(String nodeConnectorId) {
+        return nodeConnectorId.replaceAll(":[0-9]+$", "");
+    }
+
 }
 

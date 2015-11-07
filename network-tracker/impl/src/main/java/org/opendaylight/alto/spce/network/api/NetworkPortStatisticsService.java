@@ -22,5 +22,7 @@ public interface NetworkPortStatisticsService {
      */
     Long getCurrentRxSpeed(String tpId, Metric metric);
 
+    Long getAvailableTxBandwidth(String tpId, Long meterId);
+
     enum Metric {BITSPERSECOND, BYTESPERSECOND};
 }

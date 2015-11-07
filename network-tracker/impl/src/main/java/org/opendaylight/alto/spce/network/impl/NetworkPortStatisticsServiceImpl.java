@@ -8,19 +8,27 @@
 package org.opendaylight.alto.spce.network.impl;
 
 import org.opendaylight.alto.spce.network.api.NetworkPortStatisticsService;
+import org.opendaylight.alto.spce.network.util.DataHelper;
 import org.opendaylight.alto.spce.network.util.InstanceIdentifierUtils;
+import org.opendaylight.alto.spce.network.util.NetworkServiceConstants;
+import org.opendaylight.alto.spce.network.util.ReadDataFailedException;
 import org.opendaylight.controller.md.sal.binding.api.DataBroker;
 import org.opendaylight.controller.md.sal.binding.api.DataChangeListener;
 import org.opendaylight.controller.md.sal.common.api.data.AsyncDataBroker;
 import org.opendaylight.controller.md.sal.common.api.data.AsyncDataChangeEvent;
 import org.opendaylight.controller.md.sal.common.api.data.LogicalDatastoreType;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.inventory.rev130819.FlowCapableNodeConnector;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.inventory.rev130819.meters.Meter;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.node.NodeConnector;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.node.NodeConnectorKey;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.meter.types.rev130918.meter.meter.band.headers.MeterBandHeader;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.model.statistics.types.rev130925.node.connector.statistics.Bytes;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.params.xml.ns.yang.network.tracker.rev151107.*;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.port.statistics.rev131214.FlowCapableNodeConnectorStatisticsData;
 import org.opendaylight.yangtools.concepts.ListenerRegistration;
 import org.opendaylight.yangtools.yang.binding.DataObject;
 import org.opendaylight.yangtools.yang.binding.InstanceIdentifier;
+import org.opendaylight.yangtools.yang.common.RpcResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -29,9 +37,10 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 
-public class NetworkPortStatisticsServiceImpl implements NetworkPortStatisticsService, DataChangeListener, AutoCloseable {
+public class NetworkPortStatisticsServiceImpl implements NetworkPortStatisticsService, DataChangeListener, AutoCloseable, NetworkTrackerService{
     private static final Logger logger = LoggerFactory
             .getLogger(NetworkPortStatisticsServiceImpl.class);
     private static final int CPUS = Runtime.getRuntime().availableProcessors();
@@ -69,6 +78,74 @@ public class NetworkPortStatisticsServiceImpl implements NetworkPortStatisticsSe
                 LogicalDatastoreType.OPERATIONAL, InstanceIdentifierUtils.STATISTICS,
                 this, AsyncDataBroker.DataChangeScope.SUBTREE
         );
+    }
+
+    @Override
+    public Long getAvailableTxBandwidth(String tpId, Long meterId) {
+        FlowCapableNodeConnector nodeConnector = getFlowCapableNodeConnector(tpId);
+        Long capacity = getCapacity(nodeConnector, readMeter(tpId, meterId));
+        Long consumedBandwidth = getConsumedBandwidth(tpId, isHalfDuplex(nodeConnector));
+        logger.info("capacity: " + capacity);
+        logger.info("consumedBandwidth: " + consumedBandwidth);
+        if (capacity == null || consumedBandwidth == null) return null;
+        return capacity - consumedBandwidth;
+    }
+
+    private FlowCapableNodeConnector getFlowCapableNodeConnector(String tpId) {
+        logger.info("Reading flow capable node connector for " + tpId);
+        try {
+            return DataHelper.readOperational(dataBroker,
+                    InstanceIdentifierUtils.flowCapableNodeConnector(tpId));
+        } catch (ReadDataFailedException e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+    private Long getCapacity(FlowCapableNodeConnector nodeConnector, Meter meter) {
+        if (nodeConnector == null) return null;
+        long currentSpeed = nodeConnector.getCurrentSpeed();
+        if (meter == null) return currentSpeed;
+        long bandRate = -1;
+        for (MeterBandHeader band : meter.getMeterBandHeaders().getMeterBandHeader()) {
+            if (bandRate > band.getBandRate() && bandRate < currentSpeed) {
+                bandRate = band.getBandRate();
+            }
+        }
+        return (bandRate == -1) ? currentSpeed : bandRate;
+    }
+
+    private Meter readMeter(String tpId, Long meterId) {
+        String nodeId = InstanceIdentifierUtils.extractNodeId(tpId);
+        try {
+            return DataHelper.readOperational(this.dataBroker,
+                    InstanceIdentifierUtils.flowCapableNodeMeter(nodeId, meterId));
+        } catch (ReadDataFailedException e) {
+            e.printStackTrace();
+        } catch (NullPointerException e) {
+            return null;
+        }
+        return null;
+    }
+
+    private Long getConsumedBandwidth(String tpId, boolean isHalfDuplex) {
+        long transmitted = getCurrentTxSpeed(tpId, NetworkPortStatisticsService.Metric.BITSPERSECOND)
+                / 1000;
+        long received = getCurrentRxSpeed(tpId, NetworkPortStatisticsService.Metric.BITSPERSECOND)
+                / 1000;
+        if (isHalfDuplex) {
+            return transmitted + received;
+        } else {
+            return transmitted;
+        }
+    }
+
+    private boolean isHalfDuplex(FlowCapableNodeConnector nodeConnector) {
+        if (nodeConnector == null) return false;
+        boolean[] portFeatures = nodeConnector.getCurrentFeature().getValue();
+        return portFeatures[NetworkServiceConstants.PORT_FEATURES.get(NetworkServiceConstants.TEN_MB_HD)]
+                || portFeatures[NetworkServiceConstants.PORT_FEATURES.get(NetworkServiceConstants.HUNDRED_MD_HD)]
+                || portFeatures[NetworkServiceConstants.PORT_FEATURES.get(NetworkServiceConstants.ONE_GB_HD)];
     }
 
     @Override
@@ -154,6 +231,21 @@ public class NetworkPortStatisticsServiceImpl implements NetworkPortStatisticsSe
             else if (metric == Metric.BYTESPERSECOND)
                 return nodeStatisticData.get(tpId).rxSpeed;
         }
+        return null;
+    }
+
+    @Override
+    public Future<RpcResult<AltoSpceGetRxSpeedOutput>> altoSpceGetRxSpeed(AltoSpceGetRxSpeedInput input) {
+        return null;
+    }
+
+    @Override
+    public Future<RpcResult<AltoSpceGetTxBandwidthOutput>> altoSpceGetTxBandwidth(AltoSpceGetTxBandwidthInput input) {
+        return null;
+    }
+
+    @Override
+    public Future<RpcResult<AltoSpceGetTxSpeedOutput>> altoSpceGetTxSpeed(AltoSpceGetTxSpeedInput input) {
         return null;
     }
 }

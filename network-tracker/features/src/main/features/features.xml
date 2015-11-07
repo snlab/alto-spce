@@ -22,9 +22,7 @@ and is available at http://www.eclipse.org/legal/epl-v10.html
   </feature>
   <feature name='odl-network-tracker' version='${project.version}' description='OpenDaylight :: network-tracker'>
     <feature version='${mdsal.version}'>odl-mdsal-broker</feature>
-    <feature version='${l2switch.version}'>odl-l2switch-hosttracker</feature>
-    <feature version='${l2switch.version}'>odl-l2switch-addresstracker</feature>
-    <feature version='${l2switch.version}'>odl-l2switch-loopremover</feature>
+    <feature version='${l2switch.version}'>odl-l2switch-all</feature>
     <feature version='${project.version}'>odl-network-tracker-api</feature>
     <bundle>mvn:org.opendaylight.alto.spce.network/network-tracker-impl/${project.version}</bundle>
     <configfile finalname="${configfile.directory}/network-tracker.xml">mvn:org.opendaylight.alto.spce.network/network-tracker-impl/${project.version}/xml/config</configfile>

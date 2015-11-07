@@ -37,7 +37,7 @@ module alto-spce {
            in FRM. This service does not handle the complexity of re-route.";
 
         input {
-            container endpoints {
+            container endpoint {
                 leaf src {
                     type inet:ipv4-address;
                     mandatory true;
@@ -52,7 +52,7 @@ module alto-spce {
             leaf-list objective-metrics {
                 type alto-spce-metric;
             }
-            list constraint-metrics {
+            list constraint-metric {
                 leaf metric {
                     type alto-spce-metric;
                 }

@@ -1,0 +1,9 @@
+module network-tracker {
+    yang-version 1;
+    namespace "urn:opendaylight:params:xml:ns:yang:network-tracker";
+    prefix "network-tracker";
+
+    revision "2015-01-05" {
+        description "Initial revision of network-tracker model";
+    }
+}

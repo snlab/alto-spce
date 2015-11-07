@@ -1,0 +1,9 @@
+module alto-spce {
+    yang-version 1;
+    namespace "urn:opendaylight:params:xml:ns:yang:alto-spce";
+    prefix "alto-spce";
+
+    revision "2015-01-05" {
+        description "Initial revision of alto-spce model";
+    }
+}

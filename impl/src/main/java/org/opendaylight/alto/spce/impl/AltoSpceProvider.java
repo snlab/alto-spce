@@ -8,6 +8,7 @@
 
 package org.opendaylight.alto.spce.impl;
 
+import org.opendaylight.controller.md.sal.binding.api.DataBroker;
 import org.opendaylight.controller.sal.binding.api.BindingAwareBroker.RpcRegistration;
 import org.opendaylight.controller.sal.binding.api.BindingAwareBroker.ProviderContext;
 import org.opendaylight.controller.sal.binding.api.BindingAwareProvider;
@@ -20,11 +21,12 @@ public class AltoSpceProvider implements BindingAwareProvider, AutoCloseable {
 
     private static final Logger LOG = LoggerFactory.getLogger(AltoSpceProvider.class);
     private RpcRegistration<AltoSpceService> altoSpceService;
-    private SalFlowService salFlowService;
 
+    @Override
     public void onSessionInitiated(ProviderContext session) {
         LOG.info("AltoSpceProvider Session Initiated!");
-        salFlowService = session.getRpcService(SalFlowService.class);
+        SalFlowService salFlowService = session.getRpcService(SalFlowService.class);
+        DataBroker dataBroker = session.getSALService(DataBroker.class);
         altoSpceService = session.addRpcImplementation(AltoSpceService.class, new AltoSpceImpl(salFlowService));
     }
 

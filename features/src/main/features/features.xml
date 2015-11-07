@@ -15,6 +15,7 @@ and is available at http://www.eclipse.org/legal/epl-v10.html
   <repository>mvn:org.opendaylight.mdsal.model/features-mdsal-model/${mdsal.model.version}/xml/features</repository>
   <repository>mvn:org.opendaylight.netconf/features-restconf/${restconf.version}/xml/features</repository>
   <repository>mvn:org.opendaylight.dlux/features-dlux/${dlux.version}/xml/features</repository>
+  <repository>mvn:org.opendaylight.openflowplugin/features-openflowplugin/${openflow.plugin.version}/xml/features</repository>
   <feature name='odl-alto-spce-api' version='${project.version}' description='OpenDaylight :: alto-spce :: api'>
     <feature version='${mdsal.model.version}'>odl-mdsal-models</feature>
     <bundle>mvn:org.opendaylight.alto/alto-spce-api/${project.version}</bundle>
@@ -22,6 +23,8 @@ and is available at http://www.eclipse.org/legal/epl-v10.html
   <feature name='odl-alto-spce' version='${project.version}' description='OpenDaylight :: alto-spce'>
     <feature version='${mdsal.version}'>odl-mdsal-broker</feature>
     <feature version='${project.version}'>odl-alto-spce-api</feature>
+    <feature version='${openflow.plugin.version}'>odl-openflowplugin-southbound</feature>
+    <feature version='${openflow.plugin.version}'>odl-openflowplugin-flow-services</feature>
     <bundle>mvn:org.opendaylight.alto/alto-spce-impl/${project.version}</bundle>
     <configfile finalname="${configfile.directory}/alto-spce.xml">mvn:org.opendaylight.alto/alto-spce-impl/${project.version}/xml/config</configfile>
   </feature>

@@ -54,4 +54,36 @@ module network-tracker {
            }
         }
     }
+
+    rpc alto-spce-get-mac-by-ip {
+        description "";
+
+        input {
+            leaf ip-address {
+                type string;
+            }
+        }
+
+        output {
+            leaf mac-address {
+                type string;
+            }
+        }
+    }
+
+    rpc alto-spce-get-ip-by-mac {
+        description "";
+
+        input {
+            leaf mac-address {
+                type string;
+            }
+        }
+
+        output {
+            leaf ip-address {
+                type string;
+            }
+        }
+    }
 }

@@ -58,7 +58,6 @@ public class AltoSpceImpl implements AltoSpceService {
 
     public Future<RpcResult<AltoSpceRemoveOutput>> altoSpceRemove(AltoSpceRemoveInput input) {
         String path = input.getPath();
-
         ErrorCodeType errorCode = removePath(path);
 
         AltoSpceRemoveOutput output = new AltoSpceRemoveOutputBuilder()

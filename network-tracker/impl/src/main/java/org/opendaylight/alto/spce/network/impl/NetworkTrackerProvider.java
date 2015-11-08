@@ -19,15 +19,15 @@ public class NetworkTrackerProvider implements BindingAwareProvider, AutoCloseab
 
     private static final Logger LOG = LoggerFactory.getLogger(NetworkTrackerProvider.class);
     private DataBroker dataBroker;
-    private NetworkPortStatisticsServiceImpl networkPortStatisticsService;
+    private NetworkTrackerRpcHandler networkTrackerRpcHandler;
     private RpcRegistration<NetworkTrackerService> networkTrackerService;
 
     @Override
     public void onSessionInitiated(ProviderContext session) {
         LOG.info("NetworkTrackerProvider Session Initiated");
         dataBroker = session.getSALService(DataBroker.class);
-        networkPortStatisticsService = new NetworkPortStatisticsServiceImpl(dataBroker);
-        networkTrackerService = session.addRpcImplementation(NetworkTrackerService.class, networkPortStatisticsService);
+        networkTrackerRpcHandler = new NetworkTrackerRpcHandler(dataBroker);
+        networkTrackerService = session.addRpcImplementation(NetworkTrackerService.class, networkTrackerRpcHandler);
     }
 
     @Override

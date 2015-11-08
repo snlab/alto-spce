@@ -27,7 +27,7 @@ public class AltoSpceProvider implements BindingAwareProvider, AutoCloseable {
         LOG.info("AltoSpceProvider Session Initiated!");
         SalFlowService salFlowService = session.getRpcService(SalFlowService.class);
         DataBroker dataBroker = session.getSALService(DataBroker.class);
-        altoSpceService = session.addRpcImplementation(AltoSpceService.class, new AltoSpceImpl(salFlowService));
+        altoSpceService = session.addRpcImplementation(AltoSpceService.class, new AltoSpceImpl(salFlowService, dataBroker));
     }
 
     @Override

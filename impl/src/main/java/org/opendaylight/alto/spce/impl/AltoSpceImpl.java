@@ -13,6 +13,7 @@ import org.opendaylight.controller.md.sal.binding.api.DataBroker;
 import org.opendaylight.controller.md.sal.binding.api.ReadOnlyTransaction;
 import org.opendaylight.controller.md.sal.common.api.data.LogicalDatastoreType;
 import org.opendaylight.yang.gen.v1.urn.ietf.params.xml.ns.yang.ietf.inet.types.rev130715.Ipv4Address;
+import org.opendaylight.yang.gen.v1.urn.ietf.params.xml.ns.yang.ietf.yang.types.rev100924.MacAddress;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.alto.spce.rev151106.AltoSpceMetric;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.alto.spce.rev151106.AltoSpceRemoveInput;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.alto.spce.rev151106.AltoSpceRemoveOutput;
@@ -28,7 +29,10 @@ import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.service.rev130819.AddF
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.service.rev130819.RemoveFlowInputBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.service.rev130819.SalFlowService;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.types.rev131026.flow.Match;
-import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.NodeRef;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.types.rev131026.flow.MatchBuilder;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.model.match.types.rev131026.ethernet.match.fields.EthernetDestinationBuilder;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.model.match.types.rev131026.ethernet.match.fields.EthernetSourceBuilder;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.model.match.types.rev131026.match.EthernetMatchBuilder;
 import org.opendaylight.yang.gen.v1.urn.tbd.params.xml.ns.yang.network.topology.rev131021.NetworkTopology;
 import org.opendaylight.yang.gen.v1.urn.tbd.params.xml.ns.yang.network.topology.rev131021.TopologyId;
 import org.opendaylight.yang.gen.v1.urn.tbd.params.xml.ns.yang.network.topology.rev131021.TpId;
@@ -38,6 +42,7 @@ import org.opendaylight.yangtools.yang.binding.InstanceIdentifier;
 import org.opendaylight.yangtools.yang.common.RpcResult;
 import org.opendaylight.yangtools.yang.common.RpcResultBuilder;
 
+import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.Future;
 
@@ -71,27 +76,28 @@ public class AltoSpceImpl implements AltoSpceService {
         ErrorCodeType errorCode = setupPath(endpoint, path);
 
         AltoSpceSetupOutput output = new AltoSpceSetupOutputBuilder()
-                .setPath(pathToString(path))
+                .setPath(pathToString(endpoint, path))
                 .setErrorCode(errorCode)
                 .build();
         return RpcResultBuilder.success(output).buildFuture();
     }
 
-    private String pathToString(List<TpId> path) {
-        String pathString = "|";
+    private String pathToString(Endpoint endpoint, List<TpId> path) {
+        String pathString = endpoint.getSrc().getValue();
         for (TpId tpId : path) {
-            pathString += tpId.getValue() + "|";
+            pathString += "|" + tpId.getValue();
         }
+        pathString += "|" + endpoint.getDst().getValue();
         return pathString;
     }
 
     private ErrorCodeType removePath(String path) {
-        List<NodeRef> nodeRefs = parseNodeRefs(path);
+        List<TpId> tpIds = parseTpIds(path);
         Match match = parseMatch(path);
-        for (NodeRef node : nodeRefs) {
+        for (TpId tpId : tpIds) {
             this.salFlowService.removeFlow(new RemoveFlowInputBuilder()
                             .setMatch(match)
-                            .setNode(node)
+                            .setTransactionUri(tpId)
                             .build()
             );
         }
@@ -99,11 +105,28 @@ public class AltoSpceImpl implements AltoSpceService {
     }
 
     private Match parseMatch(String path) {
-        return null;
+        String[] tpList = path.split("|");
+        MacAddress srcEth = ipToEth(new Ipv4Address(tpList[0]));
+        MacAddress dstEth = ipToEth(new Ipv4Address(tpList[tpList.length - 1]));
+        return new MatchBuilder()
+                .setEthernetMatch(new EthernetMatchBuilder()
+                        .setEthernetSource(new EthernetSourceBuilder()
+                                .setAddress(srcEth)
+                                .build())
+                        .setEthernetDestination(new EthernetDestinationBuilder()
+                                .setAddress(dstEth)
+                                .build())
+                        .build())
+                .build();
     }
 
-    private List<NodeRef> parseNodeRefs(String path) {
-        return null;
+    private List<TpId> parseTpIds(String path) {
+        List<TpId> tpIds = new LinkedList<>();
+        String[] tpList = path.split("|");
+        for (int i = 1; i < tpList.length -1; i++) {
+            tpIds.add(new TpId(tpList[i]));
+        }
+        return tpIds;
     }
 
     private List<TpId> computePath(Endpoint endpoint,
@@ -133,15 +156,30 @@ public class AltoSpceImpl implements AltoSpceService {
         return null;
     }
 
-    private ErrorCodeType setupPath(Endpoint endpint, List<TpId> path) {
-        Match match = null;
+    private ErrorCodeType setupPath(Endpoint endpoint, List<TpId> path) {
+        MacAddress srcEth = ipToEth(endpoint.getSrc());
+        MacAddress dstEth = ipToEth(endpoint.getDst());
+        Match match = new MatchBuilder()
+                .setEthernetMatch(new EthernetMatchBuilder()
+                        .setEthernetSource(new EthernetSourceBuilder()
+                                .setAddress(srcEth)
+                                .build())
+                        .setEthernetDestination(new EthernetDestinationBuilder()
+                                .setAddress(dstEth)
+                                .build())
+                        .build())
+                .build();
         for (TpId tpId : path) {
             this.salFlowService.addFlow(new AddFlowInputBuilder()
-                    .setMatch(match)
-                    .setNode(null)
-                    .build()
+                            .setMatch(match)
+                            .setTransactionUri(tpId)
+                            .build()
             );
         }
+        return null;
+    }
+
+    private MacAddress ipToEth(Ipv4Address src) {
         return null;
     }
 

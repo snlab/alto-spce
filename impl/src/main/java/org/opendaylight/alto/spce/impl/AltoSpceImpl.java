@@ -9,6 +9,8 @@
 package org.opendaylight.alto.spce.impl;
 
 import com.google.common.base.Optional;
+import org.opendaylight.alto.spce.impl.util.FlowManager;
+import org.opendaylight.alto.spce.impl.util.InventoryReader;
 import org.opendaylight.controller.md.sal.binding.api.DataBroker;
 import org.opendaylight.controller.md.sal.binding.api.ReadOnlyTransaction;
 import org.opendaylight.controller.md.sal.common.api.data.LogicalDatastoreType;
@@ -25,14 +27,22 @@ import org.opendaylight.yang.gen.v1.urn.opendaylight.alto.spce.rev151106.AltoSpc
 import org.opendaylight.yang.gen.v1.urn.opendaylight.alto.spce.rev151106.ErrorCodeType;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.alto.spce.rev151106.alto.spce.setup.input.ConstraintMetric;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.alto.spce.rev151106.alto.spce.setup.input.Endpoint;
-import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.service.rev130819.AddFlowInputBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.service.rev130819.RemoveFlowInputBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.service.rev130819.SalFlowService;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.types.rev131026.flow.Match;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.types.rev131026.flow.MatchBuilder;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.NodeConnectorId;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.NodeConnectorRef;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.NodeId;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.Nodes;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.node.NodeConnector;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.node.NodeConnectorKey;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.nodes.Node;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.nodes.NodeKey;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.model.match.types.rev131026.ethernet.match.fields.EthernetDestinationBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.model.match.types.rev131026.ethernet.match.fields.EthernetSourceBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.model.match.types.rev131026.match.EthernetMatchBuilder;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.params.xml.ns.yang.network.tracker.rev151107.*;
 import org.opendaylight.yang.gen.v1.urn.tbd.params.xml.ns.yang.network.topology.rev131021.NetworkTopology;
 import org.opendaylight.yang.gen.v1.urn.tbd.params.xml.ns.yang.network.topology.rev131021.TopologyId;
 import org.opendaylight.yang.gen.v1.urn.tbd.params.xml.ns.yang.network.topology.rev131021.TpId;
@@ -44,16 +54,25 @@ import org.opendaylight.yangtools.yang.common.RpcResultBuilder;
 
 import java.util.LinkedList;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 
 public class AltoSpceImpl implements AltoSpceService {
 
     private SalFlowService salFlowService;
+    private NetworkTrackerService networkTrackerService;
     private DataBroker dataBroker;
+    private FlowManager flowManager;
+    private InventoryReader inventoryReader;
 
-    public AltoSpceImpl(SalFlowService salFlowService, DataBroker dataBroker) {
+    public AltoSpceImpl(SalFlowService salFlowService,
+                        NetworkTrackerService networkTrackerService,
+                        DataBroker dataBroker) {
         this.salFlowService = salFlowService;
+        this.networkTrackerService = networkTrackerService;
         this.dataBroker = dataBroker;
+        this.flowManager = new FlowManager(salFlowService);
+        this.inventoryReader = new InventoryReader(dataBroker);
     }
 
     public Future<RpcResult<AltoSpceRemoveOutput>> altoSpceRemove(AltoSpceRemoveInput input) {
@@ -105,8 +124,8 @@ public class AltoSpceImpl implements AltoSpceService {
 
     private Match parseMatch(String path) {
         String[] tpList = path.split("|");
-        MacAddress srcEth = ipToEth(new Ipv4Address(tpList[0]));
-        MacAddress dstEth = ipToEth(new Ipv4Address(tpList[tpList.length - 1]));
+        MacAddress srcEth = ipToMac(new Ipv4Address(tpList[0]));
+        MacAddress dstEth = ipToMac(new Ipv4Address(tpList[tpList.length - 1]));
         return new MatchBuilder()
                 .setEthernetMatch(new EthernetMatchBuilder()
                         .setEthernetSource(new EthernetSourceBuilder()
@@ -152,34 +171,41 @@ public class AltoSpceImpl implements AltoSpceService {
     }
 
     private TpId getAttachTp(Ipv4Address src) {
-        return null;
+        return this.inventoryReader.getNodeConnectorByMac(ipToMac(src));
     }
 
     private ErrorCodeType setupPath(Endpoint endpoint, List<TpId> path) {
-        MacAddress srcEth = ipToEth(endpoint.getSrc());
-        MacAddress dstEth = ipToEth(endpoint.getDst());
-        Match match = new MatchBuilder()
-                .setEthernetMatch(new EthernetMatchBuilder()
-                        .setEthernetSource(new EthernetSourceBuilder()
-                                .setAddress(srcEth)
-                                .build())
-                        .setEthernetDestination(new EthernetDestinationBuilder()
-                                .setAddress(dstEth)
-                                .build())
-                        .build())
-                .build();
-        for (TpId tpId : path) {
-            this.salFlowService.addFlow(new AddFlowInputBuilder()
-                            .setMatch(match)
-                            .setTransactionUri(tpId)
-                            .build()
-            );
+        MacAddress srcMac = ipToMac(endpoint.getSrc());
+        MacAddress dstMac = ipToMac(endpoint.getDst());
+        List<NodeConnectorRef> nodeConnectorRefs = new LinkedList<>();
+        for (TpId tpid : path) {
+            String nc_value = tpid.getValue();
+            InstanceIdentifier<NodeConnector> ncid = InstanceIdentifier.builder(Nodes.class)
+                    .child(
+                            Node.class,
+                            new NodeKey(new NodeId(nc_value.substring(0, nc_value.lastIndexOf(':')))))
+                    .child(
+                            NodeConnector.class,
+                            new NodeConnectorKey(new NodeConnectorId(nc_value)))
+                    .build();
+            nodeConnectorRefs.add(new NodeConnectorRef(ncid));
         }
+        this.flowManager.addFlowByPath(srcMac, dstMac, nodeConnectorRefs);
         return null;
     }
 
-    private MacAddress ipToEth(Ipv4Address src) {
-        return null;
+    private MacAddress ipToMac(Ipv4Address src) {
+        MacAddress mac = null;
+        AltoSpceGetMacByIpInput input = new AltoSpceGetMacByIpInputBuilder()
+                .setIpAddress(src.getValue())
+                .build();
+        Future<RpcResult<AltoSpceGetMacByIpOutput>> result = this.networkTrackerService.altoSpceGetMacByIp(input);
+        try {
+            AltoSpceGetMacByIpOutput output = result.get().getResult();
+            mac = new MacAddress(output.getMacAddress());
+        } catch (InterruptedException | ExecutionException e) {
+        }
+        return mac;
     }
 
     private Topology getTopology() {

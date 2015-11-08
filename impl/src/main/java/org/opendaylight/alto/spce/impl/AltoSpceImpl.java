@@ -9,6 +9,7 @@
 package org.opendaylight.alto.spce.impl;
 
 import com.google.common.base.Optional;
+import org.opendaylight.alto.spce.impl.algorithm.PathComputation;
 import org.opendaylight.alto.spce.impl.util.FlowManager;
 import org.opendaylight.alto.spce.impl.util.InventoryReader;
 import org.opendaylight.controller.md.sal.binding.api.DataBroker;
@@ -64,6 +65,7 @@ public class AltoSpceImpl implements AltoSpceService {
     private DataBroker dataBroker;
     private FlowManager flowManager;
     private InventoryReader inventoryReader;
+    private PathComputation pathComputation;
 
     public AltoSpceImpl(SalFlowService salFlowService,
                         NetworkTrackerService networkTrackerService,
@@ -73,6 +75,7 @@ public class AltoSpceImpl implements AltoSpceService {
         this.dataBroker = dataBroker;
         this.flowManager = new FlowManager(salFlowService);
         this.inventoryReader = new InventoryReader(dataBroker);
+        this.pathComputation = new PathComputation(networkTrackerService);
     }
 
     public Future<RpcResult<AltoSpceRemoveOutput>> altoSpceRemove(AltoSpceRemoveInput input) {
@@ -100,28 +103,6 @@ public class AltoSpceImpl implements AltoSpceService {
         return RpcResultBuilder.success(output).buildFuture();
     }
 
-    private String pathToString(Endpoint endpoint, List<TpId> path) {
-        String pathString = endpoint.getSrc().getValue();
-        for (TpId tpId : path) {
-            pathString += "|" + tpId.getValue();
-        }
-        pathString += "|" + endpoint.getDst().getValue();
-        return pathString;
-    }
-
-    private ErrorCodeType removePath(String path) {
-        List<TpId> tpIds = parseTpIds(path);
-        Match match = parseMatch(path);
-        for (TpId tpId : tpIds) {
-            this.salFlowService.removeFlow(new RemoveFlowInputBuilder()
-                            .setMatch(match)
-                            .setTransactionUri(tpId)
-                            .build()
-            );
-        }
-        return ErrorCodeType.OK;
-    }
-
     private Match parseMatch(String path) {
         String[] tpList = path.split("|");
         MacAddress srcEth = ipToMac(new Ipv4Address(tpList[0]));
@@ -147,6 +128,19 @@ public class AltoSpceImpl implements AltoSpceService {
         return tpIds;
     }
 
+    private ErrorCodeType removePath(String path) {
+        List<TpId> tpIds = parseTpIds(path);
+        Match match = parseMatch(path);
+        for (TpId tpId : tpIds) {
+            this.salFlowService.removeFlow(new RemoveFlowInputBuilder()
+                            .setMatch(match)
+                            .setTransactionUri(tpId)
+                            .build()
+            );
+        }
+        return ErrorCodeType.OK;
+    }
+
     private List<TpId> computePath(Endpoint endpoint,
                                List<AltoSpceMetric> altoSpceMetrics,
                                List<ConstraintMetric> constraintMetrics) {
@@ -155,23 +149,29 @@ public class AltoSpceImpl implements AltoSpceService {
         TpId dstTpId = getAttachTp(endpoint.getDst());
         Topology topology = getTopology();
         if (altoSpceMetrics.get(0) == AltoSpceMetric.Bandwidth) {
-            path = maxBandwidthPath(srcTpId, dstTpId, topology, constraintMetrics);
+            path = pathComputation.maxBandwidthPath(srcTpId, dstTpId, topology, constraintMetrics);
         } else if (altoSpceMetrics.get(0) == AltoSpceMetric.Hopcount) {
-            path = shortestPath(srcTpId, dstTpId, topology, constraintMetrics);
+            path = pathComputation.shortestPath(srcTpId, dstTpId, topology, constraintMetrics);
         }
         return path;
     }
 
-    private List<TpId> shortestPath(TpId srcTpId, TpId dstTpId, Topology topology, List<ConstraintMetric> constraintMetrics) {
-        return null;
-    }
-
-    private List<TpId> maxBandwidthPath(TpId srcTpId, TpId dstTpId, Topology topology, List<ConstraintMetric> constraintMetrics) {
-        return null;
-    }
-
     private TpId getAttachTp(Ipv4Address src) {
         return this.inventoryReader.getNodeConnectorByMac(ipToMac(src));
+    }
+
+    private MacAddress ipToMac(Ipv4Address src) {
+        MacAddress mac = null;
+        AltoSpceGetMacByIpInput input = new AltoSpceGetMacByIpInputBuilder()
+                .setIpAddress(src.getValue())
+                .build();
+        Future<RpcResult<AltoSpceGetMacByIpOutput>> result = this.networkTrackerService.altoSpceGetMacByIp(input);
+        try {
+            AltoSpceGetMacByIpOutput output = result.get().getResult();
+            mac = new MacAddress(output.getMacAddress());
+        } catch (InterruptedException | ExecutionException e) {
+        }
+        return mac;
     }
 
     private ErrorCodeType setupPath(Endpoint endpoint, List<TpId> path) {
@@ -194,18 +194,13 @@ public class AltoSpceImpl implements AltoSpceService {
         return null;
     }
 
-    private MacAddress ipToMac(Ipv4Address src) {
-        MacAddress mac = null;
-        AltoSpceGetMacByIpInput input = new AltoSpceGetMacByIpInputBuilder()
-                .setIpAddress(src.getValue())
-                .build();
-        Future<RpcResult<AltoSpceGetMacByIpOutput>> result = this.networkTrackerService.altoSpceGetMacByIp(input);
-        try {
-            AltoSpceGetMacByIpOutput output = result.get().getResult();
-            mac = new MacAddress(output.getMacAddress());
-        } catch (InterruptedException | ExecutionException e) {
+    private String pathToString(Endpoint endpoint, List<TpId> path) {
+        String pathString = endpoint.getSrc().getValue();
+        for (TpId tpId : path) {
+            pathString += "|" + tpId.getValue();
         }
-        return mac;
+        pathString += "|" + endpoint.getDst().getValue();
+        return pathString;
     }
 
     private Topology getTopology() {

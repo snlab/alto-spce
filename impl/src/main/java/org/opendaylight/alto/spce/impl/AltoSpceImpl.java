@@ -191,7 +191,7 @@ public class AltoSpceImpl implements AltoSpceService {
             nodeConnectorRefs.add(new NodeConnectorRef(ncid));
         }
         this.flowManager.addFlowByPath(srcMac, dstMac, nodeConnectorRefs);
-        return null;
+        return ErrorCodeType.OK;
     }
 
     private String pathToString(Endpoint endpoint, List<TpId> path) {

@@ -28,6 +28,7 @@ and is available at http://www.eclipse.org/legal/epl-v10.html INTERNAL
     <yangtools.version>0.8.0-SNAPSHOT</yangtools.version>
     <dlux.version>0.3.0-SNAPSHOT</dlux.version>
     <openflow.plugin.version>0.2.0-SNAPSHOT</openflow.plugin.version>
+    <l2switch.version>0.3.0-SNAPSHOT</l2switch.version>
     <configfile.directory>etc/opendaylight/karaf</configfile.directory>
   </properties>
   <dependencyManagement>
@@ -115,5 +116,47 @@ and is available at http://www.eclipse.org/legal/epl-v10.html INTERNAL
       <artifactId>alto-spce-api</artifactId>
       <version>${project.version}</version>
     </dependency>
+
+    <dependency>
+      <groupId>org.opendaylight.l2switch</groupId>
+      <artifactId>features-l2switch</artifactId>
+      <classifier>features</classifier>
+      <version>${l2switch.version}</version>
+      <type>xml</type>
+      <scope>runtime</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.opendaylight.l2switch.addresstracker</groupId>
+      <artifactId>addresstracker-model</artifactId>
+      <version>${l2switch.version}</version>
+      <type>jar</type>
+    </dependency>
+
+    <dependency>
+      <groupId>org.opendaylight.l2switch.hosttracker</groupId>
+      <artifactId>hosttracker-model</artifactId>
+      <version>${l2switch.version}</version>
+      <type>jar</type>
+    </dependency>
+
+    <dependency>
+      <groupId>org.opendaylight.alto.spce.network</groupId>
+      <artifactId>network-tracker-impl</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.opendaylight.alto.spce.network</groupId>
+      <artifactId>network-tracker-impl</artifactId>
+      <version>${project.version}</version>
+      <type>xml</type>
+      <classifier>config</classifier>
+    </dependency>
+    <dependency>
+      <groupId>org.opendaylight.alto.spce.network</groupId>
+      <artifactId>network-tracker-api</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+
   </dependencies>
 </project>

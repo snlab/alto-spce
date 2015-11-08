@@ -16,6 +16,29 @@ and is available at http://www.eclipse.org/legal/epl-v10.html
   <repository>mvn:org.opendaylight.netconf/features-restconf/${restconf.version}/xml/features</repository>
   <repository>mvn:org.opendaylight.dlux/features-dlux/${dlux.version}/xml/features</repository>
   <repository>mvn:org.opendaylight.openflowplugin/features-openflowplugin/${openflow.plugin.version}/xml/features</repository>
+  <repository>mvn:org.opendaylight.l2switch/features-l2switch/${l2switch.version}/xml/features</repository>
+  <feature name='odl-network-tracker-api' version='${project.version}' description='OpenDaylight :: network-tracker :: api'>
+    <feature version='${mdsal.model.version}'>odl-mdsal-models</feature>
+    <bundle>mvn:org.opendaylight.alto.spce.network/network-tracker-api/${project.version}</bundle>
+  </feature>
+  <feature name='odl-network-tracker' version='${project.version}' description='OpenDaylight :: network-tracker'>
+    <feature version='${mdsal.version}'>odl-mdsal-broker</feature>
+    <feature version='${l2switch.version}'>odl-l2switch-all</feature>
+    <feature version='${project.version}'>odl-network-tracker-api</feature>
+    <bundle>mvn:org.opendaylight.alto.spce.network/network-tracker-impl/${project.version}</bundle>
+    <configfile finalname="${configfile.directory}/network-tracker.xml">mvn:org.opendaylight.alto.spce.network/network-tracker-impl/${project.version}/xml/config</configfile>
+  </feature>
+  <feature name='odl-network-tracker-rest' version='${project.version}' description='OpenDaylight :: network-tracker :: REST'>
+    <feature version="${project.version}">odl-network-tracker</feature>
+    <feature version="${restconf.version}">odl-restconf</feature>
+  </feature>
+  <feature name='odl-network-tracker-ui' version='${project.version}' description='OpenDaylight :: network-tracker :: UI'>
+    <feature version="${project.version}">odl-network-tracker-rest</feature>
+    <feature version="${restconf.version}">odl-mdsal-apidocs</feature>
+    <feature version="${mdsal.version}">odl-mdsal-xsql</feature>
+    <feature version="${dlux.version}">odl-dlux-yangui</feature>
+  </feature>
+
   <feature name='odl-alto-spce-api' version='${project.version}' description='OpenDaylight :: alto-spce :: api'>
     <feature version='${mdsal.model.version}'>odl-mdsal-models</feature>
     <bundle>mvn:org.opendaylight.alto/alto-spce-api/${project.version}</bundle>

@@ -79,12 +79,14 @@ public class NetworkPortStatisticsServiceImpl implements NetworkPortStatisticsSe
 
     @Override
     public Long getAvailableTxBandwidth(String tpId, Long meterId) {
+        logger.info("TPIP: " + tpId);
         FlowCapableNodeConnector nodeConnector = getFlowCapableNodeConnector(tpId);
+        logger.info("nodeConnector: " + nodeConnector);
         Long capacity = getCapacity(nodeConnector, readMeter(tpId, meterId));
         Long consumedBandwidth = getConsumedBandwidth(tpId, isHalfDuplex(nodeConnector));
         logger.info("capacity: " + capacity);
         logger.info("consumedBandwidth: " + consumedBandwidth);
-        if (capacity == null || consumedBandwidth == null) return null;
+        if (capacity == null || consumedBandwidth == null) return Long.valueOf(0);
         return capacity - consumedBandwidth;
     }
 
@@ -101,7 +103,7 @@ public class NetworkPortStatisticsServiceImpl implements NetworkPortStatisticsSe
 
     private Long getCapacity(FlowCapableNodeConnector nodeConnector, Meter meter) {
         if (nodeConnector == null) return null;
-        long currentSpeed = nodeConnector.getCurrentSpeed();
+        Long currentSpeed = nodeConnector.getCurrentSpeed();
         if (meter == null) return currentSpeed;
         long bandRate = -1;
         for (MeterBandHeader band : meter.getMeterBandHeaders().getMeterBandHeader()) {
@@ -126,14 +128,20 @@ public class NetworkPortStatisticsServiceImpl implements NetworkPortStatisticsSe
     }
 
     private Long getConsumedBandwidth(String tpId, boolean isHalfDuplex) {
-        long transmitted = getCurrentTxSpeed(tpId, NetworkPortStatisticsService.Metric.BITSPERSECOND)
-                / 1000;
-        long received = getCurrentRxSpeed(tpId, NetworkPortStatisticsService.Metric.BITSPERSECOND)
-                / 1000;
-        if (isHalfDuplex) {
-            return transmitted + received;
-        } else {
-            return transmitted;
+        try {
+            long transmitted = getCurrentTxSpeed(tpId, NetworkPortStatisticsService.Metric.BITSPERSECOND)
+                    / 1000;
+            long received = getCurrentRxSpeed(tpId, NetworkPortStatisticsService.Metric.BITSPERSECOND)
+                    / 1000;
+            if (isHalfDuplex) {
+                return transmitted + received;
+            } else {
+                return transmitted;
+            }
+        } catch (Exception e) {
+            logger.error("TpId is: " + tpId);
+            e.printStackTrace();
+            return Long.valueOf(0);
         }
     }
 

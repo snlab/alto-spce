@@ -22,6 +22,8 @@ import org.opendaylight.yang.gen.v1.urn.tbd.params.xml.ns.yang.network.topology.
 import org.opendaylight.yang.gen.v1.urn.tbd.params.xml.ns.yang.network.topology.rev131021.network.topology.topology.Link;
 import org.opendaylight.yang.gen.v1.urn.tbd.params.xml.ns.yang.network.topology.rev131021.network.topology.topology.Node;
 import org.opendaylight.yangtools.yang.common.RpcResult;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.math.BigInteger;
 import java.util.HashMap;
@@ -34,7 +36,7 @@ import java.util.concurrent.Future;
 public class PathComputation {
 
     private NetworkTrackerService networkTrackerService;
-
+    private static final Logger logger = LoggerFactory.getLogger(PathComputation.class);
     public PathComputation(NetworkTrackerService networkTrackerService) {
         this.networkTrackerService = networkTrackerService;
     }
@@ -48,25 +50,7 @@ public class PathComputation {
     public List<TpId> shortestPath(TpId srcTpId, TpId dstTpId, Topology topology, List<ConstraintMetric> constraintMetrics) {
         String src = srcTpId.getValue();
         String dst = dstTpId.getValue();
-        Graph<String, PathComputation.Path> networkGraph = new SparseMultigraph();
-        for (Node eachNode : topology.getNode()) {
-            networkGraph.addVertex(eachNode.getNodeId().getValue());
-        }
-        for (Link eachLink : topology.getLink()) {
-            String linkSrcNode = eachLink.getSource().getSourceNode().getValue();
-            String linkDstNode = eachLink.getDestination().getDestNode().getValue();
-            TpId linkSrcTp = eachLink.getSource().getSourceTp();
-            TpId linkDstTp = eachLink.getDestination().getDestTp();
-            Path srcPath = new Path();
-            srcPath.src = linkSrcTp;
-            srcPath.dst = linkDstTp;
-            networkGraph.addEdge(srcPath, linkSrcNode, linkDstNode, EdgeType.DIRECTED);
-
-            Path dstPath = new Path();
-            dstPath.src = linkDstTp;
-            dstPath.dst = linkSrcTp;
-            networkGraph.addEdge(dstPath, linkDstNode, linkSrcNode, EdgeType.DIRECTED);
-        }
+        Graph<String, Path> networkGraph = getGraphFromTopology(topology);
         DijkstraShortestPath<String, Path> shortestPath = new DijkstraShortestPath<>(networkGraph);
         List<Path> path = shortestPath.getPath(extractNodeId(src), extractNodeId(dst));
         List<TpId> output = new LinkedList<>();
@@ -79,28 +63,7 @@ public class PathComputation {
     public List<TpId> maxBandwidthPath(TpId srcTpId, TpId dstTpId, Topology topology, List<ConstraintMetric> constraintMetrics) {
         String src = srcTpId.getValue();
         String dst = dstTpId.getValue();
-        Graph<String, PathComputation.Path> networkGraph = new SparseMultigraph();
-        for (Node eachNode : topology.getNode()) {
-            networkGraph.addVertex(eachNode.getNodeId().getValue());
-        }
-        for (Link eachLink : topology.getLink()) {
-            String linkSrcNode = eachLink.getSource().getSourceNode().getValue();
-            String linkDstNode = eachLink.getDestination().getDestNode().getValue();
-            TpId linkSrcTp = eachLink.getSource().getSourceTp();
-            TpId linkDstTp = eachLink.getDestination().getDestTp();
-            Path srcPath = new Path();
-            srcPath.src = linkSrcTp;
-            srcPath.dst = linkDstTp;
-            srcPath.bandwidth = getBandwidthByTp(srcPath.src.getValue()).longValue();
-
-            networkGraph.addEdge(srcPath, linkSrcNode, linkDstNode, EdgeType.DIRECTED);
-
-            Path dstPath = new Path();
-            dstPath.src = linkDstTp;
-            dstPath.dst = linkSrcTp;
-            dstPath.bandwidth = getBandwidthByTp(dstPath.src.getValue()).longValue();
-            networkGraph.addEdge(dstPath, linkDstNode, linkSrcNode, EdgeType.DIRECTED);
-        }
+        Graph<String, Path> networkGraph = getGraphFromTopology(topology);
         List<Path> path = maxBandwidth(networkGraph, extractNodeId(src), extractNodeId(dst));
         List<TpId> output = new LinkedList<>();
         for (Path eachPath : path) {
@@ -118,6 +81,8 @@ public class PathComputation {
         while (!queue.isEmpty()) {
             String now = queue.pop();
             Long provideBw = maxBw.get(now);
+            if (networkGraph.getOutEdges(now) == null)
+                continue;
             for (Path egressPath : networkGraph.getOutEdges(now)) {
                 Long bw = (egressPath.bandwidth < provideBw) ? egressPath.bandwidth : provideBw;
                 String dstNode = egressPath.dst.getValue();
@@ -125,12 +90,14 @@ public class PathComputation {
                     Long currentBw = maxBw.get(dstNode);
                     if (bw > currentBw) {
                         maxBw.put(dstNode, bw);
-                        queue.addLast(dstNode);
+                        if (!queue.contains(dstNode))
+                            queue.addLast(dstNode);
                         pre.put(dstNode, egressPath);
                     }
                 } else {
                     maxBw.put(dstNode, bw);
-                    queue.addLast(dstNode);
+                    if(!queue.contains(dstNode))
+                        queue.addLast(dstNode);
                     pre.put(dstNode, egressPath);
                 }
             }
@@ -142,6 +109,28 @@ public class PathComputation {
             output.add(0, pre.get(dst));
         }
         return output;
+    }
+
+    private Graph<String, PathComputation.Path> getGraphFromTopology(Topology topology) {
+        Graph<String, Path> networkGraph = new SparseMultigraph();
+        for (Node eachNode : topology.getNode()) {
+            networkGraph.addVertex(eachNode.getNodeId().getValue());
+        }
+        for (Link eachLink : topology.getLink()) {
+            String linkSrcNode = eachLink.getSource().getSourceNode().getValue();
+            String linkDstNode = eachLink.getDestination().getDestNode().getValue();
+            if (linkSrcNode.contains("host") || linkDstNode.contains("host")) {
+                continue;
+            }
+            TpId linkSrcTp = eachLink.getSource().getSourceTp();
+            TpId linkDstTp = eachLink.getDestination().getDestTp();
+            Path srcPath = new Path();
+            srcPath.src = linkSrcTp;
+            srcPath.dst = linkDstTp;
+            srcPath.bandwidth = getBandwidthByTp(srcPath.src.getValue()).longValue();
+            networkGraph.addEdge(srcPath, linkSrcNode, linkDstNode, EdgeType.DIRECTED);
+        }
+        return networkGraph;
     }
 
     private BigInteger getBandwidthByTp(String txTpId) {

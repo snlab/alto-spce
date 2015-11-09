@@ -212,7 +212,7 @@ public class AltoSpceImpl implements AltoSpceService {
                     .child(Topology.class, new TopologyKey(new TopologyId("flow:1")))
                     .build();
 
-            Optional<Topology> dataFuture = readTx.read(LogicalDatastoreType.CONFIGURATION,
+            Optional<Topology> dataFuture = readTx.read(LogicalDatastoreType.OPERATIONAL,
                     topologyInstanceIdentifier).get();
 
             return dataFuture.get();

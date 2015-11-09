@@ -1,3 +1,6 @@
+*.xmi
+*.log
+.zsh*
 *.class
 *.swp
 **/target

@@ -148,6 +148,7 @@ public class AltoSpceImpl implements AltoSpceService {
         TpId srcTpId = getAttachTp(endpoint.getSrc());
         TpId dstTpId = getAttachTp(endpoint.getDst());
         Topology topology = getTopology();
+
         if (altoSpceMetrics.get(0) == AltoSpceMetric.Bandwidth) {
             path = pathComputation.maxBandwidthPath(srcTpId, dstTpId, topology, constraintMetrics);
         } else if (altoSpceMetrics.get(0) == AltoSpceMetric.Hopcount) {

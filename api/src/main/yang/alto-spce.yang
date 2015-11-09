@@ -31,9 +31,9 @@ module alto-spce {
 
     rpc alto-spce-setup {
         description "Given the endpoints, this service computes a path
-           satisfying the constraints; among those satisfying the constraints, 
-           it computes the one with the best object metrics. If a path is 
-           found, the service will setup the path by installing flow rules 
+           satisfying the constraints; among those satisfying the constraints,
+           it computes the one with the best object metrics. If a path is
+           found, the service will setup the path by installing flow rules
            in FRM. This service does not handle the complexity of re-route.";
 
         input {
@@ -47,7 +47,7 @@ module alto-spce {
                     type inet:ipv4-address;
                     mandatory true;
                     description "Destination IP address";
-                } 
+                }
             }
             leaf-list objective-metrics {
                 type alto-spce-metric;

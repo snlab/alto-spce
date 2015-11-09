@@ -131,6 +131,7 @@ and is available at http://www.eclipse.org/legal/epl-v10.html INTERNAL
       <artifactId>addresstracker-model</artifactId>
       <version>${l2switch.version}</version>
       <type>jar</type>
+      <scope>runtime</scope>
     </dependency>
 
     <dependency>
@@ -138,12 +139,14 @@ and is available at http://www.eclipse.org/legal/epl-v10.html INTERNAL
       <artifactId>hosttracker-model</artifactId>
       <version>${l2switch.version}</version>
       <type>jar</type>
+      <scope>runtime</scope>
     </dependency>
 
     <dependency>
       <groupId>org.opendaylight.alto.spce.network</groupId>
       <artifactId>network-tracker-impl</artifactId>
       <version>${project.version}</version>
+      <scope>runtime</scope>
     </dependency>
     <dependency>
       <groupId>org.opendaylight.alto.spce.network</groupId>
@@ -151,11 +154,20 @@ and is available at http://www.eclipse.org/legal/epl-v10.html INTERNAL
       <version>${project.version}</version>
       <type>xml</type>
       <classifier>config</classifier>
+      <scope>runtime</scope>
     </dependency>
     <dependency>
       <groupId>org.opendaylight.alto.spce.network</groupId>
       <artifactId>network-tracker-api</artifactId>
       <version>${project.version}</version>
+      <scope>runtime</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.opendaylight.controller.model</groupId>
+      <artifactId>model-inventory</artifactId>
+      <version>${mdsal.version}</version>
+      <type>jar</type>
     </dependency>
 
   </dependencies>

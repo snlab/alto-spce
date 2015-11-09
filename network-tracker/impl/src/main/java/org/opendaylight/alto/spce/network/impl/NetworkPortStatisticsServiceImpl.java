@@ -148,6 +148,7 @@ public class NetworkPortStatisticsServiceImpl implements NetworkPortStatisticsSe
     @Override
     public void onDataChanged(
             final AsyncDataChangeEvent<InstanceIdentifier<?>, DataObject> change) {
+        logger.info("NetworkPortStatisticsServiceImpl Data Change.");
         exec.submit(new Runnable() {
             @Override
             public void run() {

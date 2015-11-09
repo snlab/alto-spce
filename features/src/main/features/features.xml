@@ -45,10 +45,10 @@ and is available at http://www.eclipse.org/legal/epl-v10.html
   </feature>
   <feature name='odl-alto-spce' version='${project.version}' description='OpenDaylight :: alto-spce'>
     <feature version='${mdsal.version}'>odl-mdsal-broker</feature>
-    <feature version='${project.version}'>odl-alto-spce-api</feature>
-    <feature version='${project.version}'>odl-network-tracker</feature>
     <feature version='${openflow.plugin.version}'>odl-openflowplugin-southbound</feature>
     <feature version='${openflow.plugin.version}'>odl-openflowplugin-flow-services</feature>
+    <feature version='${project.version}'>odl-alto-spce-api</feature>
+    <feature version='${project.version}'>odl-network-tracker</feature>
     <bundle>mvn:org.opendaylight.alto/alto-spce-impl/${project.version}</bundle>
     <configfile finalname="${configfile.directory}/alto-spce.xml">mvn:org.opendaylight.alto/alto-spce-impl/${project.version}/xml/config</configfile>
   </feature>

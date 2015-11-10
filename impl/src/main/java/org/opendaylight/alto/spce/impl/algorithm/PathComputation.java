@@ -41,10 +41,15 @@ public class PathComputation {
         this.networkTrackerService = networkTrackerService;
     }
 
-    private class Path {
+    public class Path {
         TpId src;
         TpId dst;
         Long bandwidth;
+
+        @Override
+        public String toString() {
+            return "" + src + "->" + dst + "@" + bandwidth;
+        }
     }
 
     public List<TpId> shortestPath(TpId srcTpId, TpId dstTpId, Topology topology, List<ConstraintMetric> constraintMetrics) {
@@ -72,7 +77,7 @@ public class PathComputation {
         return output;
     }
 
-    private List<Path> maxBandwidth(Graph<String, Path> networkGraph, String src, String dst) {
+    public List<Path> maxBandwidth(Graph<String, Path> networkGraph, String src, String dst) {
         LinkedList<String> queue = new LinkedList<>();
         Map<String, Long> maxBw = new HashMap<>();
         Map<String, Path> pre = new HashMap<>();
@@ -85,7 +90,7 @@ public class PathComputation {
                 continue;
             for (Path egressPath : networkGraph.getOutEdges(now)) {
                 Long bw = (egressPath.bandwidth < provideBw) ? egressPath.bandwidth : provideBw;
-                String dstNode = egressPath.dst.getValue();
+                String dstNode = extractNodeId(egressPath.dst.getValue());
                 if (maxBw.containsKey(dstNode)) {
                     Long currentBw = maxBw.get(dstNode);
                     if (bw > currentBw) {
@@ -97,15 +102,17 @@ public class PathComputation {
                 } else {
                     maxBw.put(dstNode, bw);
                     if(!queue.contains(dstNode))
+                    {
                         queue.addLast(dstNode);
+                    }
                     pre.put(dstNode, egressPath);
                 }
             }
         }
         List<Path> output = new LinkedList<>();
         output.add(0, pre.get(dst));
-        while (!output.get(0).src.getValue().equals(src)) {
-            dst = output.get(0).src.getValue();
+        while (!extractNodeId(output.get(0).src.getValue()).equals(src)) {
+            dst = extractNodeId(output.get(0).src.getValue());
             output.add(0, pre.get(dst));
         }
         return output;
@@ -117,8 +124,8 @@ public class PathComputation {
             networkGraph.addVertex(eachNode.getNodeId().getValue());
         }
         for (Link eachLink : topology.getLink()) {
-            String linkSrcNode = eachLink.getSource().getSourceNode().getValue();
-            String linkDstNode = eachLink.getDestination().getDestNode().getValue();
+            String linkSrcNode = extractNodeId(eachLink.getSource().getSourceNode().getValue());
+            String linkDstNode = extractNodeId(eachLink.getDestination().getDestNode().getValue());
             if (linkSrcNode.contains("host") || linkDstNode.contains("host")) {
                 continue;
             }
@@ -147,7 +154,9 @@ public class PathComputation {
     }
 
     public static String extractNodeId(String nodeConnectorId) {
-        return nodeConnectorId.replaceAll(":[0-9]+$", "");
+        String output =
+            nodeConnectorId.split(":")[0] + ":" + nodeConnectorId.split(":")[1];
+        return output;
     }
 
 }

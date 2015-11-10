@@ -79,13 +79,9 @@ public class NetworkPortStatisticsServiceImpl implements NetworkPortStatisticsSe
 
     @Override
     public Long getAvailableTxBandwidth(String tpId, Long meterId) {
-        logger.info("TPIP: " + tpId);
         FlowCapableNodeConnector nodeConnector = getFlowCapableNodeConnector(tpId);
-        logger.info("nodeConnector: " + nodeConnector);
         Long capacity = getCapacity(nodeConnector, readMeter(tpId, meterId));
         Long consumedBandwidth = getConsumedBandwidth(tpId, isHalfDuplex(nodeConnector));
-        logger.info("capacity: " + capacity);
-        logger.info("consumedBandwidth: " + consumedBandwidth);
         if (capacity == null || consumedBandwidth == null) return Long.valueOf(0);
         return capacity - consumedBandwidth;
     }

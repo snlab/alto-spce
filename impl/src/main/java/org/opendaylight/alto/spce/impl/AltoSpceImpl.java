@@ -28,6 +28,7 @@ import org.opendaylight.yang.gen.v1.urn.opendaylight.alto.spce.rev151106.AltoSpc
 import org.opendaylight.yang.gen.v1.urn.opendaylight.alto.spce.rev151106.AltoSpceSetupOutputBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.alto.spce.rev151106.ErrorCodeType;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.alto.spce.rev151106.alto.spce.setup.input.ConstraintMetric;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.alto.spce.rev151106.alto.spce.setup.input.ConstraintMetricBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.alto.spce.rev151106.alto.spce.setup.input.Endpoint;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.service.rev130819.RemoveFlowInputBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.service.rev130819.SalFlowService;
@@ -61,6 +62,7 @@ import org.opendaylight.yangtools.yang.common.RpcResultBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.math.BigInteger;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
@@ -100,10 +102,14 @@ public class AltoSpceImpl implements AltoSpceService {
     public Future<RpcResult<AltoSpceSetupOutput>> altoSpceSetup(AltoSpceSetupInput input) {
         Endpoint endpoint = input.getEndpoint();
         List<AltoSpceMetric> altoSpceMetrics = input.getObjectiveMetrics();
-        List<ConstraintMetric> constraintMetrics = input.getConstraintMetric();
+        List<ConstraintMetric> constraintMetrics = compressConstraint(input.getConstraintMetric());
+        List<TpId> path = null;
+        ErrorCodeType errorCode = ErrorCodeType.ERROR;
 
-        List<TpId> path = computePath(endpoint, altoSpceMetrics, constraintMetrics);
-        ErrorCodeType errorCode = setupPath(endpoint, path);
+        if (constraintMetrics != null) {
+            path = computePath(endpoint, altoSpceMetrics, constraintMetrics);
+            errorCode = setupPath(endpoint, path);
+        }
 
         AltoSpceSetupOutput output = new AltoSpceSetupOutputBuilder()
                 .setPath(pathToString(endpoint, path))
@@ -112,11 +118,47 @@ public class AltoSpceImpl implements AltoSpceService {
         return RpcResultBuilder.success(output).buildFuture();
     }
 
+    private List<ConstraintMetric> compressConstraint(List<ConstraintMetric> constraintMetrics) {
+        List<ConstraintMetric> compressedConstraintMetrics = new LinkedList<>();
+        BigInteger minHopcount = BigInteger.ZERO;
+        BigInteger maxHopcount = BigInteger.valueOf(1000000000L);
+        BigInteger minBandwidth = BigInteger.ZERO;
+        BigInteger maxBandwidth = BigInteger.valueOf(1000000000L);
+        for (ConstraintMetric constraintMetric : constraintMetrics) {
+            if (constraintMetric.getMetric() == AltoSpceMetric.Hopcount) {
+                minHopcount = minHopcount.max(constraintMetric.getMin());
+                maxHopcount = maxHopcount.min(constraintMetric.getMax());
+                if (minHopcount.compareTo(maxHopcount) == 1) {
+                    return null;
+                }
+            } else if (constraintMetric.getMetric() == AltoSpceMetric.Bandwidth) {
+                minBandwidth = minBandwidth.max(constraintMetric.getMin());
+                maxBandwidth = maxBandwidth.min(constraintMetric.getMax());
+                if (minBandwidth.compareTo(maxBandwidth) == 1) {
+                    return null;
+                }
+            }
+        }
+        compressedConstraintMetrics.add(new ConstraintMetricBuilder()
+                .setMetric(AltoSpceMetric.Hopcount)
+                .setMin(minHopcount)
+                .setMax(maxHopcount)
+                .build());
+        compressedConstraintMetrics.add(new ConstraintMetricBuilder()
+                .setMetric(AltoSpceMetric.Bandwidth)
+                .setMin(minBandwidth)
+                .setMax(maxBandwidth)
+                .build());
+        return compressedConstraintMetrics;
+    }
+
     private Match parseMacMatch(String path) {
         String[] tpList = path.split("\\|");
-        LOG.info("Parse Result: [" + tpList[0] + ", ..., " + tpList[tpList.length - 1] + "]");
         MacAddress srcEth = ipToMac(new Ipv4Address(tpList[0]));
         MacAddress dstEth = ipToMac(new Ipv4Address(tpList[tpList.length - 1]));
+        if (srcEth == null | dstEth == null) {
+            return null;
+        }
         return new MatchBuilder()
                 .setEthernetMatch(new EthernetMatchBuilder()
                         .setEthernetSource(new EthernetSourceBuilder()
@@ -133,6 +175,9 @@ public class AltoSpceImpl implements AltoSpceService {
         String[] tpList = path.split("\\|");
         Ipv4Prefix srcIp = new Ipv4Prefix(tpList[0] + "/32");
         Ipv4Prefix dstIp = new Ipv4Prefix(tpList[tpList.length - 1] + "/32");
+        if (srcIp == null | dstIp == null) {
+            return null;
+        }
         return new MatchBuilder()
                 .setLayer3Match(new Ipv4MatchBuilder()
                         .setIpv4Source(srcIp)
@@ -154,23 +199,31 @@ public class AltoSpceImpl implements AltoSpceService {
         List<TpId> tpIds = parseTpIds(path);
         Match macMatch = parseMacMatch(path);
         Match ipMatch = parseIpMatch(path);
-        for (TpId tpId : tpIds) {
-            NodeRef nodeRef =
-                    new NodeRef(InstanceIdentifier.builder(Nodes.class)
-                            .child(Node.class, new NodeKey(
-                                    new NodeId(tpId.getValue().substring(0, tpId.getValue().lastIndexOf(":")))))
-                            .build());
-            this.salFlowService.removeFlow(new RemoveFlowInputBuilder()
-                            .setMatch(macMatch)
-                    .setNode(nodeRef)
-                    .setTransactionUri(tpId)
-                    .build()
-            );
-            this.salFlowService.removeFlow(new RemoveFlowInputBuilder()
-                    .setMatch(ipMatch)
-                    .setNode(nodeRef)
-                    .build()
-            );
+        if (macMatch == null | ipMatch == null) {
+            return ErrorCodeType.ERROR;
+        }
+        try {
+            for (TpId tpId : tpIds) {
+                NodeRef nodeRef =
+                        new NodeRef(InstanceIdentifier.builder(Nodes.class)
+                                .child(Node.class, new NodeKey(
+                                        new NodeId(tpId.getValue().substring(0, tpId.getValue().lastIndexOf(":")))))
+                                .build());
+                this.salFlowService.removeFlow(new RemoveFlowInputBuilder()
+                        .setMatch(macMatch)
+                        .setNode(nodeRef)
+                        .setTransactionUri(tpId)
+                        .build()
+                );
+                this.salFlowService.removeFlow(new RemoveFlowInputBuilder()
+                        .setMatch(ipMatch)
+                        .setNode(nodeRef)
+                        .build()
+                );
+            }
+        } catch (Exception e) {
+            LOG.info("Exception occurs when remove a path: " + e.getMessage());
+            return ErrorCodeType.ERROR;
         }
         return ErrorCodeType.OK;
     }
@@ -182,11 +235,18 @@ public class AltoSpceImpl implements AltoSpceService {
         TpId srcTpId = getAttachTp(endpoint.getSrc());
         TpId dstTpId = getAttachTp(endpoint.getDst());
         Topology topology = getTopology();
-        if (altoSpceMetrics.get(0) == AltoSpceMetric.Bandwidth) {
-            path = pathComputation.maxBandwidthPath(srcTpId, dstTpId, topology, constraintMetrics);
-            path.add(dstTpId);
-        } else if (altoSpceMetrics.get(0) == AltoSpceMetric.Hopcount) {
-            path = pathComputation.shortestPath(srcTpId, dstTpId, topology, constraintMetrics);
+
+        try {
+            if (altoSpceMetrics.get(0) == AltoSpceMetric.Bandwidth) {
+                path = pathComputation.maxBandwidthPath(srcTpId, dstTpId, topology, constraintMetrics);
+            } else if (altoSpceMetrics.get(0) == AltoSpceMetric.Hopcount) {
+                path = pathComputation.shortestPath(srcTpId, dstTpId, topology, constraintMetrics);
+            }
+        } catch (Exception e) {
+            LOG.info("Exception occurs when compute path: " + e.getMessage());
+        }
+
+        if (path != null) {
             path.add(dstTpId);
         }
         return path;
@@ -206,6 +266,7 @@ public class AltoSpceImpl implements AltoSpceService {
             AltoSpceGetMacByIpOutput output = result.get().getResult();
             mac = new MacAddress(output.getMacAddress());
         } catch (InterruptedException | ExecutionException e) {
+            LOG.info("Exception occurs when convert ip to mac: " + e.getMessage());
         }
         return mac;
     }
@@ -216,34 +277,41 @@ public class AltoSpceImpl implements AltoSpceService {
             return ErrorCodeType.ERROR;
         }
 
-        Ipv4Address srcIp = endpoint.getSrc();
-        Ipv4Address dstIp = endpoint.getDst();
-        MacAddress srcMac = ipToMac(srcIp);
-        MacAddress dstMac = ipToMac(dstIp);
-        List<NodeConnectorRef> nodeConnectorRefs = new LinkedList<>();
-        for (TpId tpid : path) {
-            String nc_value = tpid.getValue();
-            InstanceIdentifier<NodeConnector> ncid = InstanceIdentifier.builder(Nodes.class)
-                    .child(
-                            Node.class,
-                            new NodeKey(new NodeId(nc_value.substring(0, nc_value.lastIndexOf(':')))))
-                    .child(
-                            NodeConnector.class,
-                            new NodeConnectorKey(new NodeConnectorId(nc_value)))
-                    .build();
-            nodeConnectorRefs.add(new NodeConnectorRef(ncid));
+        try {
+            Ipv4Address srcIp = endpoint.getSrc();
+            Ipv4Address dstIp = endpoint.getDst();
+            MacAddress srcMac = ipToMac(srcIp);
+            MacAddress dstMac = ipToMac(dstIp);
+            List<NodeConnectorRef> nodeConnectorRefs = new LinkedList<>();
+            for (TpId tpid : path) {
+                String nc_value = tpid.getValue();
+                InstanceIdentifier<NodeConnector> ncid = InstanceIdentifier.builder(Nodes.class)
+                        .child(
+                                Node.class,
+                                new NodeKey(new NodeId(nc_value.substring(0, nc_value.lastIndexOf(':')))))
+                        .child(
+                                NodeConnector.class,
+                                new NodeConnectorKey(new NodeConnectorId(nc_value)))
+                        .build();
+                nodeConnectorRefs.add(new NodeConnectorRef(ncid));
+            }
+            LOG.info("Setup a path: srcIp=" + srcIp.getValue() + ", dstIp=" + dstIp.getValue());
+            LOG.info("Setup a path: srcMac=" + srcMac.getValue() + ", dstMac=" + dstMac.getValue());
+            this.flowManager.addFlowByPath(srcIp, dstIp, nodeConnectorRefs);
+            this.flowManager.addFlowByPath(srcMac, dstMac, nodeConnectorRefs);
+        } catch (Exception e) {
+            LOG.info("Exception occurs when setup a path: " + e.getMessage());
+            return ErrorCodeType.ERROR;
         }
-        LOG.info("Setup a path: srcIp=" + srcIp.getValue() + ", dstIp=" + dstIp.getValue());
-        LOG.info("Setup a path: srcMac=" + srcMac.getValue() + ", dstMac=" + dstMac.getValue());
-        this.flowManager.addFlowByPath(srcIp, dstIp, nodeConnectorRefs);
-        this.flowManager.addFlowByPath(srcMac, dstMac, nodeConnectorRefs);
         return ErrorCodeType.OK;
     }
 
     private String pathToString(Endpoint endpoint, List<TpId> path) {
         String pathString = endpoint.getSrc().getValue();
-        for (TpId tpId : path) {
-            pathString += "|" + tpId.getValue();
+        if (path != null) {
+            for (TpId tpId : path) {
+                pathString += "|" + tpId.getValue();
+            }
         }
         pathString += "|" + endpoint.getDst().getValue();
         return pathString;
@@ -263,6 +331,7 @@ public class AltoSpceImpl implements AltoSpceService {
 
             return dataFuture.get();
         } catch (Exception e) {
+            LOG.info("Exception occurs when get topology: " + e.getMessage());
         }
         return null;
     }

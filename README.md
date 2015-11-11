@@ -1,26 +1,31 @@
 # ALTO SPCE (Simple Path Computation Engine)
 
-ALTO SPCE module provides a simple path computation engine for ALTO and other projects. It works in ODL (OpenDaylight) SDN Controller.
+The ALTO SPCE module provides a simple path computation engine for ALTO and other projects. It works in the
+OpenDaylight(ODL) SDN Controller.
 
 ## Installation
 
-We assume you have set up your development environment by following [this link](https://wiki.opendaylight.org/view/GettingStarted:Development_Environment_Setup).
+One prerequisite for installing ALTO SPCE is that the ODL development environment should be setup by
+following [this link](https://wiki.opendaylight.org/view/GettingStarted:Development_Environment_Setup).
 
-Run `mvn clean install` in the top directory of alto-spce project. After that, you can execute `./karaf/target/assembly/bin/karaf` to start alto-spce with ODL.
+With this prerequisite satisfied, execute `mvn clean install` in the directory of alto-spce project
+to start the installation. After the installation, you can execute `./karaf/target/assembly/bin/karaf`
+to start the alto-spce with ODL.
 
 ## Deployment
 
-You can also deploy this module into a running ODL controller without stopping controller. Only run `./deploy.sh <distribution_directory>`. And `<distribution_directory>` is the path of your own running ODL distribution.
+You can also deploy this module into a running ODL controller without stopping the controller, by
+running `./deploy.sh <distribution_directory>`, where `<distribution_directory>` is the path of your own running ODL distribution.
 
 For example, if you start your ODL controller from `/root/distribution-karaf-0.4.0-SNAPSHOT/bin/karaf`, you can use the command `./deploy.sh /root/distribution-karaf-0.4.0-SNAP`.
 
-And then, you can check whether the features of alto-spce are loaded in your karaf shell:
+And then, you can check whether the features of alto-spce are loaded in your karaf shell as follows:
 
 ```
 karaf@root()> feature:list | grep alto-spce
 ```
 
-If features are loaded, you can install them:
+If the features are loaded, you can install them by:
 
 ```
 karaf@root()> feature:install odl-alto-spce
@@ -32,12 +37,14 @@ karaf@root()> feature:install odl-alto-spce
 karaf@root()> log:tail
 ```
 
-You could use this command to get the tailing log and if you see `AltoSpceProvider Session Initiated!`, it means that alto-spce has installed successfully. 
+You could use this command to get the tailing log. If you see **AltoSpceProvider Session Initiated!**,
+it means that alto-spce has been installed successfully. 
 
 ## Usage
+
 ### Prerequisites
 
-Please make sure that your have configed **l2switch** correctly. Two .xml files below could be found in `/karaf/target/assembly/etc/opendaylight/karaf`.
+Please make sure that your have configured **l2switch** correctly. Two .xml files below could be found in `/karaf/target/assembly/etc/opendaylight/karaf`.
 
 In **54-arphandler.xml**, please set
 
@@ -57,7 +64,7 @@ In **58-l2switchmain.xml**, please set
 sudo mn --controller=remote,ip=<Controller IP> --mac --topo=linear,3 --switch ovsk,protocols=OpenFlow13
 ```
 
-The command above will create a virtual network consisting of 3 switches. And each host is attached to each switch.
+The command above will create a virtual network consisting of 3 switches. And one host is attached to each switch.
 
 ### Discover hosts
 

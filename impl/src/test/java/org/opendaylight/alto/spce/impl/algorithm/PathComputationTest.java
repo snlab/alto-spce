@@ -31,14 +31,15 @@ public class PathComputationTest {
         for (int i = 0; i < 5; ++i) {
             networkGraph.addVertex("openflow:"+i);
         }
-        addEdge(networkGraph, getTp(0, 0), getTp(1, 0), (long) 5);
-        addEdge(networkGraph, getTp(1, 1), getTp(2, 0), (long) 1);
-        addEdge(networkGraph, getTp(1, 2), getTp(4, 0), (long) 2);
-        addEdge(networkGraph, getTp(4, 1), getTp(3, 2), (long) 3);
-        addEdge(networkGraph, getTp(2, 1), getTp(3, 0), (long) 8);
-        addEdge(networkGraph, getTp(3, 1), getTp(5, 1), (long) 5);
+        addEdge(networkGraph, getTp(0, 0), getTp(1, 0), (long) 10);
+        addEdge(networkGraph, getTp(1, 1), getTp(2, 0), (long) 100);
+        addEdge(networkGraph, getTp(2, 1), getTp(3, 0), (long) 100);
+        addEdge(networkGraph, getTp(3, 1), getTp(4, 0), (long) 100);
+        addEdge(networkGraph, getTp(4, 1), getTp(5, 0), (long) 10);
+        addEdge(networkGraph, getTp(1, 2), getTp(6, 0), (long) 5);
+        addEdge(networkGraph, getTp(6, 1), getTp(4, 2), (long) 5);
         List<PathComputation.Path> output
-                = pathComputer.maxBandwidth(networkGraph, getNode(0), getNode(5));
+                = pathComputer.maxBandwidth(networkGraph, getNode(0), getNode(5), (long) 4);
         System.out.println(output);
     }
 

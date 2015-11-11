@@ -26,6 +26,75 @@ If features are loaded, you can install them:
 karaf@root()> feature:install odl-alto-spce
 ```
 
-## Usage
+**Tip:**
 
-TODO
+```
+karaf@root()> log:tail
+```
+
+You could use this command to get the tailing log and if you see **AltoSpceProvider Session Initiated!**, it means that alto-spce has installed successfully. 
+
+## Usage
+### Prerequisites
+
+Please make sure that your have configed **l2switch** correctly. Two .xml files below could be found in `/karaf/target/assembly/etc/opendaylight/karaf`.
+
+In **54-arphandler.xml**, please set
+
+```
+<is-proactive-flood-mode>false</is-proactive-flood-mode>
+```
+
+In **58-l2switchmain.xml**, please set
+
+```
+<is-learning-only-mode>true</is-learning-only-mode>
+```
+
+### Creating a network using Mininet
+
+```
+sudo mn --controller=remote,ip=<Controller IP> --mac --topo=linear,3 --switch ovsk,protocols=OpenFlow13
+```
+
+The command above will create a virtual network consisting of 3 switches. And each host is attached to each switch.
+
+### Discover hosts
+
+l2switch uses arp packets to discover hosts. 
+
+If we use mininet, we could use `ping` to let l2switch get the arp packets it needs. 
+
+```
+mininet> h1 ping h5
+```
+
+After this command, l2switch will discover host1 and host5.
+
+
+### Setup/Remove a path with python-odl library
+
+We have forked [python-odl](https://github.com/SPRACE/python-odl) project and add some codes to support alto-spce. You could get the code [here](https://github.com/snlab/python-odl).
+
+```
+＃ Import essential modules.
+>>> import odl.instance
+>>> import odl.altospce
+
+# Initiate a ODLInstance object.
+>>> myodl = odl.instance.ODLInstance("http://127.0.0.1:8181",("admin","admin"))
+
+# Initiate a ALTOSpce object.
+>>> myaltospce = odl.altospce.ALTOSpce(server="http://127.0.0.1:8181",credentials=("admin","admin"),odl_instance=myodl)
+
+# Setup a path between host1(10.0.0.1) and host5(10.0.0.5)
+>>> myaltospce.path_setup(src="10.0.0.1",dst="10.0.0.5",objective_metrics=["bandwidth"])
+{'path': [u'10.0.0.5|openflow:6:3|openflow:5:3|openflow:1:1|openflow:2:1|openflow:3:1|10.0.0.1', u'10.0.0.1|openflow:3:3|openflow:2:3|openflow:1:2|openflow:5:1|openflow:6:1|10.0.0.5'], 'error-code': 'OK'}
+
+# Remove the path between host1(10.0.0.1) and host5(10.0.0.5)
+# To identify the path please use the 'path' indicated in myaltospce.path_setup
+>>> myaltospce.path_remove(["10.0.0.5|openflow:6:3|openflow:5:3|openflow:1:1|openflow:2:1|openflow:3:1|10.0.0.1","10.0.0.1|openflow:3:3|openflow:2:3|openflow:1:2|openflow:5:1|openflow:6:1|10.0.0.5"])
+{'error-code': 'OK'}
+```
+
+Enjoy your alto-spce!

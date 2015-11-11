@@ -32,7 +32,7 @@ karaf@root()> feature:install odl-alto-spce
 karaf@root()> log:tail
 ```
 
-You could use this command to get the tailing log and if you see **AltoSpceProvider Session Initiated!**, it means that alto-spce has installed successfully. 
+You could use this command to get the tailing log and if you see `AltoSpceProvider Session Initiated!`, it means that alto-spce has installed successfully. 
 
 ## Usage
 ### Prerequisites
@@ -61,9 +61,9 @@ The command above will create a virtual network consisting of 3 switches. And ea
 
 ### Discover hosts
 
-l2switch uses arp packets to discover hosts. 
+l2switch uses ARP packets to discover hosts. 
 
-If we use mininet, we could use `ping` to let l2switch get the arp packets it needs. 
+If we use mininet, we could use `ping` to let l2switch get the ARP packets it needs. 
 
 ```
 mininet> h1 ping h5

@@ -89,6 +89,11 @@ public class PathComputation {
         return output;
     }
 
+    /** (1) add edges by the bandwidth, high bandwidth edge be added into the graph first;
+     ** (2) if this adding create a route, which is not longer than max hopcount, between src and dst:
+     **       return this route;
+     ** (3) else: continue the adding.
+     **/
     public List<Path> maxBandwidth(Graph<String, Path> networkGraph, String src, String dst, Long maxHop) {
         Map<String, Long> hopCount = new HashMap<>();
         Map<String, Path> pre = new HashMap<>();
@@ -97,7 +102,7 @@ public class PathComputation {
         Collections.sort(paths, new Comparator<Path>() {
             @Override
             public int compare(Path x, Path y) {
-                return (x.bandwidth == y.bandwidth ? 0 : (x.bandwidth > y.bandwidth ? -1 : 1));
+                return (Objects.equals(x.bandwidth, y.bandwidth) ? 0 : (x.bandwidth > y.bandwidth ? -1 : 1));
             }
 
             @Override
@@ -108,6 +113,7 @@ public class PathComputation {
             }
         });
         Graph<String, Path> graph = new SparseMultigraph<>();
+        // add every node into the graph
         for (String eachNode : networkGraph.getVertices())
             graph.addVertex(eachNode);
         for (Path eachPath : paths) {
@@ -123,11 +129,8 @@ public class PathComputation {
                     if (graph.getOutEdges(srcNode) != null) {
                         for (Path outPath : graph.getOutEdges(srcNode)) {
                             dstNode = extractNodeId(outPath.dst.getValue());
-                            if (!hopCount.containsKey(dstNode)) {
-                                queue.push(dstNode);
-                                hopCount.put(dstNode, hopCount.get(srcNode) + 1);
-                                pre.put(dstNode, outPath);
-                            } else if (hopCount.get(dstNode) > hopCount.get(srcNode) + 1 ) {
+                            if (!hopCount.containsKey(dstNode) ||
+                                    (hopCount.get(dstNode) > hopCount.get(srcNode) + 1)) {
                                 queue.push(dstNode);
                                 hopCount.put(dstNode, hopCount.get(srcNode) + 1);
                                 pre.put(dstNode, outPath);
@@ -136,6 +139,7 @@ public class PathComputation {
                     }
                 }
                 if (hopCount.containsKey(dst) && hopCount.get(dst) <= maxHop) {
+                    // finally, build the route
                     List<Path> output = new LinkedList<>();
                     output.add(0, pre.get(dst));
                     while (!extractNodeId(output.get(0).src.getValue()).equals(src)) {

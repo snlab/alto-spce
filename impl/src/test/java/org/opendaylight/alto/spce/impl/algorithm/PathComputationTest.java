@@ -13,8 +13,10 @@ import edu.uci.ics.jung.graph.SparseMultigraph;
 import edu.uci.ics.jung.graph.util.EdgeType;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.Assert;
 import org.opendaylight.yang.gen.v1.urn.tbd.params.xml.ns.yang.network.topology.rev131021.TpId;
 
+import java.util.LinkedList;
 import java.util.List;
 
 public class PathComputationTest {
@@ -40,7 +42,15 @@ public class PathComputationTest {
         addEdge(networkGraph, getTp(6, 1), getTp(4, 2), (long) 5);
         List<PathComputation.Path> output
                 = pathComputer.maxBandwidth(networkGraph, getNode(0), getNode(5), (long) 4);
-        System.out.println(output);
+        LinkedList<String> result = new LinkedList<>();
+        result.add(getTp(0, 0));
+        result.add(getTp(1, 2));
+        result.add(getTp(6, 1));
+        result.add(getTp(4, 1));
+        Assert.assertEquals(4, output.size());
+        for (int i = 0; i < 4; ++i) {
+            Assert.assertEquals(result.get(i), output.get(i).src.getValue());
+        }
     }
 
     private <T> String getTp(T i, T j) {
@@ -51,7 +61,7 @@ public class PathComputationTest {
         return "openflow:" + i;
     }
 
-    private void addEdge (Graph<String, PathComputation.Path> networkGraph,
+    private PathComputation.Path addEdge (Graph<String, PathComputation.Path> networkGraph,
                           String src, String dst, Long bw) {
         PathComputation.Path p = pathComputer.new Path();
         p.src = TpId.getDefaultInstance(src);
@@ -65,6 +75,7 @@ public class PathComputationTest {
         p.bandwidth = bw;
         networkGraph.addEdge(p, PathComputation.extractNodeId(dst), PathComputation.extractNodeId(src),
                 EdgeType.DIRECTED);
+        return p;
     }
 
 }

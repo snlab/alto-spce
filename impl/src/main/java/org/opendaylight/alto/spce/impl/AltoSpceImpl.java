@@ -121,11 +121,13 @@ public class AltoSpceImpl implements AltoSpceService {
     }
 
     private List<ConstraintMetric> compressConstraint(List<ConstraintMetric> constraintMetrics) {
+        if (constraintMetrics == null)
+            return null;
         List<ConstraintMetric> compressedConstraintMetrics = new LinkedList<>();
         BigInteger minHopcount = BigInteger.ZERO;
-        BigInteger maxHopcount = BigInteger.valueOf(1000000000L);
+        BigInteger maxHopcount = BigInteger.valueOf(Long.MAX_VALUE);
         BigInteger minBandwidth = BigInteger.ZERO;
-        BigInteger maxBandwidth = BigInteger.valueOf(1000000000L);
+        BigInteger maxBandwidth = BigInteger.valueOf(Long.MAX_VALUE);
         for (ConstraintMetric constraintMetric : constraintMetrics) {
             if (constraintMetric.getMetric() == AltoSpceMetric.Hopcount) {
                 minHopcount = minHopcount.max(constraintMetric.getMin());
@@ -253,9 +255,6 @@ public class AltoSpceImpl implements AltoSpceService {
             LOG.info("Exception occurs when compute path: " + e.getMessage());
         }
 
-        if (path != null) {
-            path.add(dstTpId);
-        }
         return path;
     }
 

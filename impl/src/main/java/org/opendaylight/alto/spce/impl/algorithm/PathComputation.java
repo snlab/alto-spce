@@ -49,9 +49,10 @@ public class PathComputation {
             private long hopcount = Long.MAX_VALUE;
             @Override
             public boolean isStop(List<RouteViewer.Path> pathList) {
-                pathList.add(finalPath);
-                long hopcount = pathList.size();
-                long bandwidth = getBandwidth(pathList);
+                LinkedList<RouteViewer.Path> tmp = new LinkedList<>(pathList);
+                tmp.add(finalPath);
+                long hopcount = tmp.size();
+                long bandwidth = getBandwidth(tmp);
                 if (constraintMetrics != null) {
                     for (ConstraintMetric eachConstraint : constraintMetrics) {
                         if (eachConstraint.getMetric() == null) {
@@ -74,7 +75,7 @@ public class PathComputation {
                 }
                 if (hopcount < this.hopcount) {
                     this.hopcount = hopcount;
-                    result = new LinkedList<>(pathList);
+                    result = tmp;
                 }
                 return false;
             }
@@ -108,9 +109,10 @@ public class PathComputation {
             private long bandwidth = 0;
             @Override
             public boolean isStop(List<RouteViewer.Path> pathList) {
-                pathList.add(finalPath);
-                long hopcount = pathList.size();
-                long bandwidth = getBandwidth(pathList);
+                LinkedList<RouteViewer.Path> tmp = new LinkedList<>(pathList);
+                tmp.add(finalPath);
+                long hopcount = tmp.size();
+                long bandwidth = getBandwidth(tmp);
                 if (constraintMetrics != null) {
                     for (ConstraintMetric eachConstraint : constraintMetrics) {
                         if (eachConstraint.getMetric() == null) {
@@ -133,7 +135,7 @@ public class PathComputation {
                 }
                 if (bandwidth > this.bandwidth) {
                     this.bandwidth = bandwidth;
-                    result = new LinkedList<>(pathList);
+                    result = tmp;
                 }
                 return false;
             }

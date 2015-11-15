@@ -39,6 +39,7 @@ public class OMFRA {
         int num_flow = flow.length;
         int num_request = request.length;
 
+        return new OMFRAAllocPolicy(); //TODO
     }
 
     private boolean FindResidualPath(BandwidthTopology tmpTopology,
@@ -47,13 +48,13 @@ public class OMFRA {
         int num_flow = flow.length;
 
         for (int k=0; k<num_flow; k++) {
-            if (flow[i].getPath().isEmpty()) {//Flow path is not fixed
-                if (FindPath(tmpTopology, flow[i].getSource(), request.getDestination())) {
+            if (flow[k].getPath().isEmpty()) {//Flow path is not fixed
+                if (FindPath(tmpTopology, flow[k].getSource(), request.getDestination())) {
                     return true;
                 }
             }
             else {//Flow path is fixed
-                List<Integer> path = flow[i].getPath();
+                List<Integer> path = flow[k].getPath();
                 boolean found = true;
                 for (int i=0; i<path.size()-1; i++) {
                     if (tmpTopology.getBandwidth(path.get(i), path.get(i+1)) == 0) {

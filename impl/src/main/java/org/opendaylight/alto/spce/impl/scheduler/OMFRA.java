@@ -33,10 +33,10 @@ public class OMFRA {
     private static final int ENUM_REPLICA = 1;
     private static final int HERUISTIC_REPLICA = 2;
 
-    private enum ReplicaSelection {
+    /*private enum ReplicaSelection {
         MINHOP_REPLICA, ENUM_REPLICA, HERUISTIC_REPLICA
     }
-
+    */
 
     /*Scheduling mode*/
     private static final int ONLINE_OMFRA = 0;
@@ -76,9 +76,33 @@ public class OMFRA {
         this.pathSelectionOption = PATH_SELECTION_DISABLED;
     }
 
-    public boolean setReplicationSelectionMode(int ReplicationSelectionMode) {
+    public boolean setReplicationSelectionMode(int replicationSelectionMode) {
+        switch (replicationSelectionMode) {
+            case MINHOP_REPLICA:
+                this.replicaSelectionMode = MINHOP_REPLICA;
+                return true;
+            case ENUM_REPLICA:
+                this.replicaSelectionMode = ENUM_REPLICA;
+                return true;
+            case HERUISTIC_REPLICA:
+                this.replicaSelectionMode = HERUISTIC_REPLICA;
+                return true;
+            default:
+                return false;
+        }
+    }
 
-
+    public boolean setSchedulingMode(int schedulingMode) {
+        switch (schedulingMode) {
+            case ONLINE_OMFRA:
+                this.schedulingMode = ONLINE_OMFRA;
+                return true;
+            case OFFLINE_OMFRA:
+                this.schedulingMode = OFFLINE_OMFRA;
+                return true;
+            default:
+                return false;
+        }
     }
 
     public OMFRAAllocPolicy onlineScheduler(BandwidthTopology topology,

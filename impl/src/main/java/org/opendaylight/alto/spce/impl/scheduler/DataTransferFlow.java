@@ -11,8 +11,8 @@ package org.opendaylight.alto.spce.impl.scheduler;
 import java.util.List;
 
 public class DataTransferFlow {
-    private long kSeq;
-    private long mSeq;
+    private int kSeq;
+    private int mSeq;
     private int source;
     private int destination;
     private long volume;
@@ -20,7 +20,7 @@ public class DataTransferFlow {
     private long minBandwidth;
     private long maxBandwidth;
 
-    public DataTransferFlow(long kSeq, long mSeq, int source, int destination, long volume, List<Integer> path, long minBandwidth, long maxBandwidth) {
+    public DataTransferFlow(int kSeq, int mSeq, int source, int destination, long volume, List<Integer> path, long minBandwidth, long maxBandwidth) {
         this.kSeq = kSeq;
         this.mSeq = mSeq;
         this.source = source;
@@ -31,11 +31,11 @@ public class DataTransferFlow {
         this.maxBandwidth = maxBandwidth;
     }
 
-    public long getkSeq() {
+    public int getkSeq() {
         return this.kSeq;
     }
 
-    public long getmSeq() {
+    public int getmSeq() {
         return this.mSeq;
     }
 

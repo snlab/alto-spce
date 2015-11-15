@@ -9,13 +9,13 @@
 package org.opendaylight.alto.spce.impl.scheduler;
 
 public class DataTransferRequest {
-    private long mSeq;
+    private int mSeq;
     private int priority;
     private long arrivalTime;
     private int destination;
     private long volume;
 
-    public DataTransferRequest(long mSeq, int priority, long arrivalTime, int destination, long volume) {
+    public DataTransferRequest(int mSeq, int priority, long arrivalTime, int destination, long volume) {
         this.mSeq = mSeq;
         this.priority = priority;
         this.arrivalTime = arrivalTime;
@@ -23,7 +23,7 @@ public class DataTransferRequest {
         this.volume = volume;
     }
 
-    public long getmSeq() {
+    public int getmSeq() {
         return this.mSeq;
     }
 

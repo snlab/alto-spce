@@ -18,16 +18,67 @@ import java.util.List;
 
 public class OMFRA {
 
-    private boolean fileSlicingAllowed;
+    private static final boolean DEBUG = false;
 
-    public OMFRA(boolean fileSlicingAllowed) {
-        this.fileSlicingAllowed = fileSlicingAllowed;
+    /*File slicing mode*/
+    private static final boolean FILE_SLICING_DISABLED = false;
+    private static final boolean FILE_SLICING_ENABLED = true;
+
+    /*Path selection mode*/
+    private static final boolean PATH_SELECTION_DISABLED = false;
+    private static final boolean PATH_SELECTION_ENABLED = true;
+
+    /*Replica selection mode, only needed if file slicing is disabled*/
+    private static final int MINHOP_REPLICA = 0;
+    private static final int ENUM_REPLICA = 1;
+    private static final int HERUISTIC_REPLICA = 2;
+
+    private enum ReplicaSelection {
+        MINHOP_REPLICA, ENUM_REPLICA, HERUISTIC_REPLICA
     }
 
-    public boolean getFlieSlicingOption() { return this.fileSlicingAllowed; }
 
-    public void setFileSlicingOption (boolean fileSlicingAllowed) {
-        this.fileSlicingAllowed = fileSlicingAllowed;
+    /*Scheduling mode*/
+    private static final int ONLINE_OMFRA = 0;
+    private static final int OFFLINE_OMFRA = 1;
+
+    private boolean fileSlicingOption;
+    private boolean pathSelectionOption;
+    private int replicaSelectionMode;
+    private int schedulingMode;
+
+    public OMFRA(boolean fileSlicingOption, boolean pathSelectionOption,
+                 int replicaSelectionMode, int schedulingMode) {
+        this.fileSlicingOption = fileSlicingOption;
+        this.pathSelectionOption = pathSelectionOption;
+        this.replicaSelectionMode = replicaSelectionMode;
+        this.schedulingMode = schedulingMode;
+    }
+
+    public boolean getFileSlicingOption() { return this.fileSlicingOption; }
+    public boolean getPathSelectionOption() { return this.pathSelectionOption; }
+    public int getReplicaSelectionMode() { return this.replicaSelectionMode; }
+    public int getSchedulingMode() { return this.schedulingMode; }
+
+    public void enableFileSlicing() {
+        this.fileSlicingOption = FILE_SLICING_ENABLED;
+    }
+
+    public void disableFileSlicing() {
+        this.fileSlicingOption = FILE_SLICING_DISABLED;
+    }
+
+    public void enablePathSelection() {
+        this.pathSelectionOption = PATH_SELECTION_ENABLED;
+    }
+
+    public void disablePathSelection() {
+        this.pathSelectionOption = PATH_SELECTION_DISABLED;
+    }
+
+    public boolean setReplicationSelectionMode(int ReplicationSelectionMode) {
+
+
     }
 
     public OMFRAAllocPolicy onlineScheduler(BandwidthTopology topology,

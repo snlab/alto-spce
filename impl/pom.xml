@@ -65,11 +65,11 @@ and is available at http://www.eclipse.org/legal/epl-v10.html
       <artifactId>mockito-all</artifactId>
       <scope>test</scope>
     </dependency>
-
+    
     <dependency>
-	    <groupId>com.github.vincentfk</groupId>
+	    <groupId>com.joptimizer</groupId>
 	    <artifactId>joptimizer</artifactId>
-	    <version>3.3.0</version>
+	    <version>3.4.0</version>
     </dependency>
 
   </dependencies>

@@ -20,7 +20,6 @@ public class OMFRA {
 
     private boolean fileSlicingAllowed;
 
-
     public OMFRA(boolean fileSlicingAllowed) {
         this.fileSlicingAllowed = fileSlicingAllowed;
     }
@@ -29,6 +28,17 @@ public class OMFRA {
 
     public void setFileSlicingOption (boolean fileSlicingAllowed) {
         this.fileSlicingAllowed = fileSlicingAllowed;
+    }
+
+    public OMFRAAllocPolicy onlineScheduler(BandwidthTopology topology,
+                                            DataTransferRequest[] request,
+                                            int newRequestIdx,
+                                            DataTransferFlow[] flow, 
+                                            int newFlowIdx) {
+        int num_vertex = topology.getTopologySize();
+        int num_flow = flow.length;
+        int num_request = request.length;
+
     }
 
     private boolean FindResidualPath(BandwidthTopology tmpTopology,
@@ -62,7 +72,6 @@ public class OMFRA {
 
         return false;
     }
-
 
     private boolean FindPath(BandwidthTopology topology, int src, int dst) {
         boolean exitflag = false;

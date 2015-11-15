@@ -32,6 +32,7 @@ public class OMFRA {
     private static final int MINHOP_REPLICA = 0;
     private static final int ENUM_REPLICA = 1;
     private static final int HERUISTIC_REPLICA = 2;
+    //TODO: use enum
 
     /*private enum ReplicaSelection {
         MINHOP_REPLICA, ENUM_REPLICA, HERUISTIC_REPLICA
@@ -105,11 +106,23 @@ public class OMFRA {
         }
     }
 
-    public OMFRAAllocPolicy onlineScheduler(BandwidthTopology topology,
+    public OMFRAAllocPolicy[] onlineScheduler(BandwidthTopology topology,
                                             DataTransferRequest[] request,
                                             int newRequestIdx,
                                             DataTransferFlow[] flow, 
                                             int newFlowIdx) {
+        int num_vertex = topology.getTopologySize();
+        int num_flow = flow.length;
+        int num_request = request.length;
+        OMFRAAllocPolicy AllocPolicy[];
+
+
+        return new OMFRAAllocPolicy()[1]; //TODO
+    }
+
+    private OMFRAAllocPolicy OMFRA_Core(BandwidthTopology topology,
+                                        DataTransferRequest[] request,
+                                        DataTransferFlow[] flow) {
         int num_vertex = topology.getTopologySize();
         int num_flow = flow.length;
         int num_request = request.length;

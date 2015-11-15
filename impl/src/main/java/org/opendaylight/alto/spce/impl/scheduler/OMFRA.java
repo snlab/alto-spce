@@ -15,11 +15,7 @@ import com.joptimizer.optimizers.LPPrimalDualMethod;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
-//import java.util.Queue;
 
-/**
- * Created by qiao on 11/14/15.
- */
 public class OMFRA {
 
     private boolean fileSlicingAllowed;
@@ -102,7 +98,7 @@ public class OMFRA {
         return list;
     }
 
-    public double MMFSolver(BandwidthTopology topology, DataTransferRequest[] unsatDataTransferRequests, DataTransferRequest[] satDataTransferRequests, DataTransferFlow[] flow, double[] zSat) { //TODO::handle Routing
+    public double [] MMFSolver(BandwidthTopology topology, DataTransferRequest[] unsatDataTransferRequests, DataTransferRequest[] satDataTransferRequests, DataTransferFlow[] flow, double[] zSat) { //TODO::handle Routing
 
         //List of variables : fij || rk || z
         int numVertex = topology.getTopologySize();
@@ -119,7 +115,7 @@ public class OMFRA {
         c[posZ] = -1.;
 
         //inequalities constraints
-        numExp = numVertex * numVertex + numUnsat + 2 * numFlow * numVertex * numVertex + numUnsat + numSat;
+        numExp = numVertex * numVertex + numUnsat + numUnsat + numSat + 2 * numFlow * numVertex * numVertex;
         double[][] G = new double[numExp][numVariables];
         double[] h = new double[numExp];
         for (int i = 0; i < numExp; i++) {
@@ -131,23 +127,36 @@ public class OMFRA {
         //Build coefficient matrix for link capacity
         for (int i = 0; i < numVertex; i++)
             for (int j = 0; j < numVertex; j++) {
-                current++;
-
                 for (int k = 0; k < numFlow; k++)
                     G[current][k * numVertex * numVertex + i * numVertex + j] = 1.;
 
-                h[current] = topology.getBandwidth(i, j);
+                h[current++] = topology.getBandwidth(i, j);
             }
 
         //Build coefficient matrix for unsaturated requests
         for (int i = 0; i < numUnsat; i++) {
-            current++;
-
             for (int j = 0; j < numFlow; j++)
                 if (flow[j].getmSeq() == unsatDataTransferRequests[i].getmSeq())
                     G[current][numVertex * numVertex * numFlow + flow[j].getkSeq()] = -1.;
 
-            G[current][posZ] = unsatDataTransferRequests[i].getVolume();
+            G[current++][posZ] = unsatDataTransferRequests[i].getVolume();
+        }
+
+        //Build coefficient matrix for (4h)
+        for (int i = 0; i < numSat; i++) {
+            for (int j = 0; j < numFlow; j++)
+                if (flow[j].getmSeq() == satDataTransferRequests[i].getmSeq())
+                    G[current][numVertex * numVertex * numFlow + flow[j].getkSeq()] = 1.;
+
+            h[current++] = satDataTransferRequests[i].getVolume();
+        }
+
+        for (int i = 0; i < numUnsat; i++) {
+            for (int j = 0; j < numFlow; j++)
+                if (flow[j].getmSeq() == unsatDataTransferRequests[i].getmSeq())
+                    G[current][numVertex * numVertex * numFlow + flow[j].getkSeq()] = 1.;
+
+            h[current++] =  unsatDataTransferRequests[i].getVolume();
         }
 
         //Build coefficient matrix for flow path constraint
@@ -169,28 +178,7 @@ public class OMFRA {
             }
         }
 
-        current += 2 * numFlow * numVertex * numVertex;
-
-        //Build coefficient matrix for (4h)
-        for (int i = 0; i < numSat; i++) {
-            current++;
-
-            for (int j = 0; j < numFlow; j++)
-                if (flow[j].getmSeq() == satDataTransferRequests[i].getmSeq())
-                    G[current][numVertex * numVertex * numFlow + flow[j].getkSeq()] = 1.;
-
-            h[current] = satDataTransferRequests[i].getVolume();
-        }
-
-        for (int i = 0; i < numUnsat; i++) {
-            current++;
-
-            for (int j = 0; j < numFlow; j++)
-                if (flow[j].getmSeq() == unsatDataTransferRequests[i].getmSeq())
-                    G[current][numVertex * numVertex * numFlow + flow[j].getkSeq()] = 1.;
-
-            h[current] =  unsatDataTransferRequests[i].getVolume();
-        }
+        assert(current + 2 * numFlow * numVertex * numVertex == numExp);
 
         //equalities constraints
         numExp = numVertex * numFlow + numSat;
@@ -205,8 +193,6 @@ public class OMFRA {
         current = 0;
         for (int k = 0; k < numFlow; k++)
             for (int i = 0; i < numVertex; i++) {
-                current++;
-
                 for (int j = 0; j < numVertex; j++) {
                     if (topology.getBandwidth(i, j) > 0)
                         A[current][k * numVertex * numVertex + i * numVertex + j] = 1.;
@@ -216,23 +202,24 @@ public class OMFRA {
                 }
 
                 if (i == flow[k].getSource()) {
-                    A[current][numVertex * numVertex * numFlow + k] = -1.;
+                    A[current++][numVertex * numVertex * numFlow + k] = -1.;
                 } else {
-                    A[current][numVertex * numVertex + numFlow + k] = (i == flow[k].getDestination()) ? 1. : 0;
+                    A[current++][numVertex * numVertex + numFlow + k] = (i == flow[k].getDestination()) ? 1. : 0;
                 }
+
             }
 
         //Build coefficient matrix for saturated requests
         for (int i = 0; i < numSat; i++) {
-            current++;
-
             for (int j = 0; j < numFlow; j++) {
                 if (flow[j].getmSeq() == satDataTransferRequests[i].getmSeq())
                     A[current][numVertex * numVertex * numFlow + flow[j].getkSeq()] = 1.;
             }
 
-            b[current] = satDataTransferRequests[i].getVolume() * zSat[i];
+            b[current++] = satDataTransferRequests[i].getVolume() * zSat[i];
         }
+
+        assert(current == numExp);
 
         //Bounds on variables
         numExp = numVariables;
@@ -261,8 +248,6 @@ public class OMFRA {
             e.printStackTrace();
         }
 
-        double[] sol = opt.getOptimizationResponse().getSolution();
-
-        return sol[posZ];
+        return opt.getOptimizationResponse().getSolution();
     }
 }

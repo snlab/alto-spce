@@ -9,4 +9,10 @@ import org.junit.Before;
  * Created by qiao on 11/14/15.
  */
 public class SchedulerTest {
+        private OMFRA obj;
+
+        @Test
+        public void MMFSolverTest() {
+                assert(true); //TODO
+        }
 }

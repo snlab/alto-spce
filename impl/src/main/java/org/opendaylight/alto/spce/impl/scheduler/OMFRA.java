@@ -15,18 +15,45 @@ import com.joptimizer.optimizers.LPPrimalDualMethod;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Queue;
+//import java.util.Queue;
 
 /**
  * Created by qiao on 11/14/15.
  */
 public class OMFRA {
 
-    private boolean FindResidualPath() {
-        boolean exitflag = false;
+    private boolean FindResidualPath(BandwidthTopology tmpTopology,
+                                     DataTransferRequest request,
+                                     DataTransferFlow[] flow) {
+        int num_flow = flow.length;
 
-        return exitflag;
+        for (int k=0; k<num_flow; k++) {
+            if (flow[i].getPath().isEmpty()) {//Flow path is not fixed
+                if (FindPath(tmpTopology, flow[i].getSource(), request.getDestination())) {
+                    return true;
+                }
+            }
+            else {//Flow path is fixed
+                List<Integer> path = flow[i].getPath();
+                boolean found = true;
+                for (int i=0; i<path.size()-1; i++) {
+                    if (tmpTopology.getBandwidth(path.get(i), path.get(i+1)) == 0) {
+                        found = false;
+                        break;
+                    }
+                    else if (tmpTopology.getBandwidth(path.get(i), path.get(i+1)) < flow[i].getMinBandwidth()) {
+                        found = false;
+                        break;
+                    }
+                }
+                if (found)
+                    return true;
+            }
+        }
+
+        return false;
     }
+
 
     private boolean FindPath(BandwidthTopology topology, int src, int dst) {
         boolean exitflag = false;
@@ -35,24 +62,23 @@ public class OMFRA {
         boolean[] visited = new boolean[numVertex];
         Arrays.fill(visited, false);
 
-        LinkedList<Integer> vertice = new LinkedList<Integer>();
-        //Queue vertice = new LinkedList();
-        vertice.add(src);
+        LinkedList<Integer> vertices = new LinkedList<Integer>();
+        vertices.add(src);
 
-        while (!vertice.isEmpty()) {
+        while (!vertices.isEmpty()) {
             for (int i=0; i<numVertex; i++) {
-                if ((topology.getBandwidth(vertice.getFirst(), i) >0)
-                        && (vertice.getFirst() != i)
+                if ((topology.getBandwidth(vertices.getFirst(), i) >0)
+                        && (vertices.getFirst() != i)
                         && (!visited[i])) {
                     visited[i]=true;
-                    vertice.add(i);
+                    vertices.add(i);
                     if (i==dst) {
                         exitflag = true;
                         return exitflag;
                     }
                 }
             }
-            vertice.remove();
+            vertices.remove();
         }
 
         return exitflag;

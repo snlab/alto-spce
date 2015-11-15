@@ -22,11 +22,17 @@ import java.util.List;
  */
 public class OMFRA {
 
-    private boolean fileSliceAllowed;
+    private boolean fileSlicingAllowed;
 
 
-    public OMFRA(boolean fileSliceAllowed) {
-        this.fileSliceAllowed = fileSliceAllowed;
+    public OMFRA(boolean fileSlicingAllowed) {
+        this.fileSlicingAllowed = fileSlicingAllowed;
+    }
+
+    public boolean getFlieSlicingOption() { return this.fileSlicingAllowed; }
+
+    public void setFileSlicingOption (boolean fileSlicingAllowed) {
+        this.fileSlicingAllowed = fileSlicingAllowed;
     }
 
     private boolean FindResidualPath(BandwidthTopology tmpTopology,

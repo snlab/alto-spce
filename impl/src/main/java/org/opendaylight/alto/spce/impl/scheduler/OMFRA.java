@@ -22,6 +22,13 @@ import java.util.List;
  */
 public class OMFRA {
 
+    private boolean fileSliceAllowed;
+
+
+    public OMFRA(boolean fileSliceAllowed) {
+        this.fileSliceAllowed = fileSliceAllowed;
+    }
+
     private boolean FindResidualPath(BandwidthTopology tmpTopology,
                                      DataTransferRequest request,
                                      DataTransferFlow[] flow) {

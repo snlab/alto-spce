@@ -22,6 +22,8 @@ import org.opendaylight.yang.gen.v1.urn.opendaylight.alto.spce.rev151106.AltoSpc
 import org.opendaylight.yang.gen.v1.urn.opendaylight.alto.spce.rev151106.AltoSpceRemoveInput;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.alto.spce.rev151106.AltoSpceRemoveOutput;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.alto.spce.rev151106.AltoSpceRemoveOutputBuilder;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.alto.spce.rev151106.AltoSpceSchedulerInput;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.alto.spce.rev151106.AltoSpceSchedulerOutput;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.alto.spce.rev151106.AltoSpceService;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.alto.spce.rev151106.AltoSpceSetupInput;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.alto.spce.rev151106.AltoSpceSetupOutput;
@@ -91,6 +93,7 @@ public class AltoSpceImpl implements AltoSpceService {
         this.pathComputation = new PathComputation(networkTrackerService);
     }
 
+    @Override
     public Future<RpcResult<AltoSpceRemoveOutput>> altoSpceRemove(AltoSpceRemoveInput input) {
         String path = input.getPath();
         ErrorCodeType errorCode = removePath(path);
@@ -101,6 +104,7 @@ public class AltoSpceImpl implements AltoSpceService {
         return RpcResultBuilder.success(output).buildFuture();
     }
 
+    @Override
     public Future<RpcResult<AltoSpceSetupOutput>> altoSpceSetup(AltoSpceSetupInput input) {
         Endpoint endpoint = input.getEndpoint();
         List<AltoSpceMetric> altoSpceMetrics = input.getObjectiveMetrics();
@@ -118,6 +122,11 @@ public class AltoSpceImpl implements AltoSpceService {
                 .setErrorCode(errorCode)
                 .build();
         return RpcResultBuilder.success(output).buildFuture();
+    }
+
+    @Override
+    public Future<RpcResult<AltoSpceSchedulerOutput>> altoSpceScheduler(AltoSpceSchedulerInput input) {
+        return null;
     }
 
     private List<ConstraintMetric> compressConstraint(List<ConstraintMetric> constraintMetrics) {

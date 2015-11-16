@@ -18,30 +18,6 @@ import java.util.List;
 
 public class OMFRA {
 
-    private static final boolean DEBUG = false;
-
-    /*File slicing mode*/
-    private static final boolean FILE_SLICING_DISABLED = false;
-    private static final boolean FILE_SLICING_ENABLED = true;
-
-    /*Path selection mode*/
-    private static final boolean PATH_SELECTION_DISABLED = false;
-    private static final boolean PATH_SELECTION_ENABLED = true;
-
-    /*Replica selection mode, only needed if file slicing is disabled*/
-    private static final int MINHOP_REPLICA = 0;
-    private static final int ENUM_REPLICA = 1;
-    private static final int HERUISTIC_REPLICA = 2;
-    //TODO: use enum
-
-    /*private enum ReplicaSelection {
-        MINHOP_REPLICA, ENUM_REPLICA, HERUISTIC_REPLICA
-    }
-    */
-
-    /*Scheduling mode*/
-    private static final int ONLINE_OMFRA = 0;
-    private static final int OFFLINE_OMFRA = 1;
 
     private boolean fileSlicingOption;
     private boolean pathSelectionOption;
@@ -62,31 +38,31 @@ public class OMFRA {
     public int getSchedulingMode() { return this.schedulingMode; }
 
     public void enableFileSlicing() {
-        this.fileSlicingOption = FILE_SLICING_ENABLED;
+        this.fileSlicingOption = ConfigurationOptions.FILE_SLICING_ENABLED;
     }
 
     public void disableFileSlicing() {
-        this.fileSlicingOption = FILE_SLICING_DISABLED;
+        this.fileSlicingOption = ConfigurationOptions.FILE_SLICING_DISABLED;
     }
 
     public void enablePathSelection() {
-        this.pathSelectionOption = PATH_SELECTION_ENABLED;
+        this.pathSelectionOption = ConfigurationOptions.PATH_SELECTION_ENABLED;
     }
 
     public void disablePathSelection() {
-        this.pathSelectionOption = PATH_SELECTION_DISABLED;
+        this.pathSelectionOption = ConfigurationOptions.PATH_SELECTION_DISABLED;
     }
 
     public boolean setReplicationSelectionMode(int replicationSelectionMode) {
         switch (replicationSelectionMode) {
-            case MINHOP_REPLICA:
-                this.replicaSelectionMode = MINHOP_REPLICA;
+            case ConfigurationOptions.MINHOP_REPLICA:
+                this.replicaSelectionMode = ConfigurationOptions.MINHOP_REPLICA;
                 return true;
-            case ENUM_REPLICA:
-                this.replicaSelectionMode = ENUM_REPLICA;
+            case ConfigurationOptions.ENUM_REPLICA:
+                this.replicaSelectionMode = ConfigurationOptions.ENUM_REPLICA;
                 return true;
-            case HERUISTIC_REPLICA:
-                this.replicaSelectionMode = HERUISTIC_REPLICA;
+            case ConfigurationOptions.HERUISTIC_REPLICA:
+                this.replicaSelectionMode = ConfigurationOptions.HERUISTIC_REPLICA;
                 return true;
             default:
                 return false;
@@ -95,11 +71,11 @@ public class OMFRA {
 
     public boolean setSchedulingMode(int schedulingMode) {
         switch (schedulingMode) {
-            case ONLINE_OMFRA:
-                this.schedulingMode = ONLINE_OMFRA;
+            case ConfigurationOptions.ONLINE_OMFRA:
+                this.schedulingMode = ConfigurationOptions.ONLINE_OMFRA;
                 return true;
-            case OFFLINE_OMFRA:
-                this.schedulingMode = OFFLINE_OMFRA;
+            case ConfigurationOptions.OFFLINE_OMFRA:
+                this.schedulingMode = ConfigurationOptions.OFFLINE_OMFRA;
                 return true;
             default:
                 return false;

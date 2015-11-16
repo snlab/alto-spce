@@ -82,28 +82,111 @@ public class OMFRA {
         }
     }
 
-    public OMFRAAllocPolicy[] onlineScheduler(BandwidthTopology topology,
-                                            DataTransferRequest[] request,
+    public List<OMFRAAllocPolicy> Scheduler(BandwidthTopology topology,
+                                            List<DataTransferRequest> request,
                                             int newRequestIdx,
-                                            DataTransferFlow[] flow, 
+                                            List<DataTransferFlow> flow,
                                             int newFlowIdx) {
         int num_vertex = topology.getTopologySize();
-        int num_flow = flow.length;
-        int num_request = request.length;
-        OMFRAAllocPolicy AllocPolicy[];
+        int num_flow = flow.size();
+        int num_request = request.size();
+        List<OMFRAAllocPolicy> AllocPolicy = new LinkedList<OMFRAAllocPolicy>();
+        //AllocPolicy.add(new OMFRAAllocPolicy(num_vertex, num_flow));
 
+        if (!this.fileSlicingOption) {
+            List<DataTransferFlow> chosenNewFlow =
+                    replicaSelector(topology, request, newRequestIdx, flow, newFlowIdx);
+            //TODO: update flow before scheduling
+        }
 
-        return new OMFRAAllocPolicy()[1]; //TODO
+        switch (this.schedulingMode) {
+            case ConfigurationOptions.ONLINE_OMFRA:
+                AllocPolicy = OMFRA_Core(topology, request, flow);
+                return AllocPolicy;
+            case ConfigurationOptions.OFFLINE_OMFRA:
+                AllocPolicy = OMFRA_Offline(topology, request, flow);
+                return AllocPolicy;
+        }
+        //TODO: catch exception needed??
+        return AllocPolicy;
     }
 
-    private OMFRAAllocPolicy OMFRA_Core(BandwidthTopology topology,
-                                        DataTransferRequest[] request,
-                                        DataTransferFlow[] flow) {
+    public List<DataTransferFlow> replicaSelector(BandwidthTopology topology,
+                                                   List<DataTransferRequest> request,
+                                                   int newRequestIdx,
+                                                   List<DataTransferFlow> flow,
+                                                   int newFlowIdx) {
+        int num_vertex = topology.getTopologySize();
+        int num_flow = flow.size();
+        int num_request = request.size();
+
+        List<DataTransferFlow> chosenNewFlow = new LinkedList<DataTransferFlow>();
+
+        switch (this.replicaSelectionMode) {
+            case ConfigurationOptions.MINHOP_REPLICA:
+                chosenNewFlow =
+                        minHopReplica(flow, newFlowIdx);
+                return chosenNewFlow;
+            case ConfigurationOptions.ENUM_REPLICA:
+                chosenNewFlow =
+                        enumReplica(topology, request, newRequestIdx, flow, newFlowIdx);
+                return chosenNewFlow;
+            case ConfigurationOptions.HERUISTIC_REPLICA:
+                chosenNewFlow =
+                        heruisticReplica(topology, request, newRequestIdx, flow, newFlowIdx);
+                return chosenNewFlow;
+        }
+
+        return chosenNewFlow;
+    }
+
+    private List<DataTransferFlow> minHopReplica(List<DataTransferFlow> flow,
+                                                 int newFlowIdx) {
+        List<DataTransferFlow> chosenNewFlow = new LinkedList<DataTransferFlow>();
+
+        return chosenNewFlow;
+    }
+
+    private List<DataTransferFlow> enumReplica(BandwidthTopology topology,
+                                                   List<DataTransferRequest> request,
+                                                   int newRequestIdx,
+                                                   List<DataTransferFlow> flow,
+                                                   int newFlowIdx) {
+        List<DataTransferFlow> chosenNewFlow = new LinkedList<DataTransferFlow>();
+
+        return chosenNewFlow;
+    }
+
+    private List<DataTransferFlow> heruisticReplica(BandwidthTopology topology,
+                                                List<DataTransferRequest> request,
+                                                int newRequestIdx,
+                                                List<DataTransferFlow> flow,
+                                                int newFlowIdx) {
+        List<DataTransferFlow> chosenNewFlow = new LinkedList<DataTransferFlow>();
+
+        return chosenNewFlow;
+    }
+
+    private List<OMFRAAllocPolicy> OMFRA_Core(BandwidthTopology topology,
+                                        List<DataTransferRequest> request,
+                                        List<DataTransferFlow> flow) {
         int num_vertex = topology.getTopologySize();
         int num_flow = flow.length;
         int num_request = request.length;
+        List<OMFRAAllocPolicy> AllocPolicy = new LinkedList<OMFRAAllocPolicy>();
 
-        return new OMFRAAllocPolicy(); //TODO
+        return AllocPolicy; //TODO
+    }
+
+    private List<OMFRAAllocPolicy> OMFRA_Offline(BandwidthTopology topology,
+                                              List<DataTransferRequest> request,
+                                              List<DataTransferFlow> flow) {
+        int num_vertex = topology.getTopologySize();
+        int num_flow = flow.length;
+        int num_request = request.length;
+        List<OMFRAAllocPolicy> AllocPolicy = new LinkedList<OMFRAAllocPolicy>();
+
+        return AllocPolicy; //TODO
     }
 
     private boolean FindResidualPath(BandwidthTopology tmpTopology,

@@ -173,7 +173,15 @@ public class OMFRA {
         int num_vertex = topology.getTopologySize();
         int num_flow = flow.length;
         int num_request = request.length;
+        int maxPri = getMaxPriority(request);
+
         List<OMFRAAllocPolicy> AllocPolicy = new LinkedList<OMFRAAllocPolicy>();
+
+        for (int priority=maxPri; i>=0; i--) {
+
+        }
+
+
 
         return AllocPolicy; //TODO
     }
@@ -187,6 +195,25 @@ public class OMFRA {
         List<OMFRAAllocPolicy> AllocPolicy = new LinkedList<OMFRAAllocPolicy>();
 
         return AllocPolicy; //TODO
+    }
+
+    private int getMaxPriority(List<DataTransferRequest> request) {
+        int maxPri = 0;
+        for (int i=0; i<request.size(); i++) {
+            if (request.get(i).getPriority() > maxPri)
+                maxPri = request.get(i).getPriority();
+        }
+        return maxPri;
+    }
+
+    private List<DataTransferRequest> getReuqestbyPriority(List<DataTransferRequest> request,
+                                                           int priority) {
+        List<DataTransferRequest> resultRequest = new LinkedList<DataTransferRequest>();
+        for (int i=0; i<request.size(); i++) {
+            if (request.get(i).getPriority() == priority)
+                resultRequest.add(request.get(i));
+        }
+        return resultRequest;
     }
 
     private boolean FindResidualPath(BandwidthTopology tmpTopology,

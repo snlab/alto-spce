@@ -12,20 +12,21 @@ import java.util.List;
 
 public class DataTransferFlow {
     private int kSeq;
-    private int mSeq;
+    //private int mSeq;
     private int source;
-    private int destination;
-    private long volume;
+    //private int destination;
+    //private long volume;
     private List<Integer> path;
     private long minBandwidth;
     private long maxBandwidth;
 
-    public DataTransferFlow(int kSeq, int mSeq, int source, int destination, long volume, List<Integer> path, long minBandwidth, long maxBandwidth) {
+    public DataTransferFlow(int kSeq, int source, List<Integer> path,
+                            long minBandwidth, long maxBandwidth) {
         this.kSeq = kSeq;
-        this.mSeq = mSeq;
+        //this.mSeq = mSeq;
         this.source = source;
-        this.destination = destination;
-        this.volume = volume;
+        //this.destination = destination;
+        //this.volume = volume;
         this.path = path;
         this.minBandwidth = minBandwidth;
         this.maxBandwidth = maxBandwidth;
@@ -35,14 +36,14 @@ public class DataTransferFlow {
         return this.kSeq;
     }
 
-    public int getmSeq() {
+    /*public int getmSeq() {
         return this.mSeq;
-    }
+    }*/
 
     public int getSource() {
         return this.source;
     }
-
+/*
     public int getDestination() {
         return this.destination;
     }
@@ -50,7 +51,7 @@ public class DataTransferFlow {
     public long getVolume() {
         return this.volume;
     }
-
+*/
     public List<Integer> getPath() {
         return this.path;
     }

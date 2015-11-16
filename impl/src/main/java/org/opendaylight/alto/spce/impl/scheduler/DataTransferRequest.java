@@ -8,19 +8,24 @@
 
 package org.opendaylight.alto.spce.impl.scheduler;
 
+import java.util.List;
+
 public class DataTransferRequest {
     private int mSeq;
     private int priority;
     private long arrivalTime;
     private int destination;
     private long volume;
+    private List<DataTransferFlow> flow;
 
-    public DataTransferRequest(int mSeq, int priority, long arrivalTime, int destination, long volume) {
+    public DataTransferRequest(int mSeq, int priority, long arrivalTime,
+                               int destination, long volume, List<DataTransferFlow> flow) {
         this.mSeq = mSeq;
         this.priority = priority;
         this.arrivalTime = arrivalTime;
         this.destination = destination;
         this.volume = volume;
+        this.flow = flow;
     }
 
     public int getmSeq() {
@@ -42,4 +47,6 @@ public class DataTransferRequest {
     public long getVolume() {
         return this.volume;
     }
+
+    public List<DataTransferFlow> getFlow() { return this.flow;}
 }

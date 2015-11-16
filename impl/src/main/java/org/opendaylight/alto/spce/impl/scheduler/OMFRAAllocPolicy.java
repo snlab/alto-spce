@@ -9,33 +9,35 @@
 
 package org.opendaylight.alto.spce.impl.scheduler;
 
+import java.util.LinkedList;
+import java.util.List;
+
 /**
  * Created by qiao on 11/15/15.
  */
 public class OMFRAAllocPolicy {
-    private long F_alloc[][][];
-    private long R_alloc[];
-    private long FlowSeq[];
+    private List<RequestAlloc> request_alloc;
+    private double z; //this variable is only used to store the solution of MMF_solver
 
-    public void OMFRAAllocPolicy(int num_vertex, int num_flow) {
-        F_alloc = new long[num_vertex][num_vertex][num_flow];
-        R_alloc = new long[num_flow];
-        FlowSeq = new long[num_flow];
+    public void OMFRAAllocPolicy(double z) {
+        this.z = z;
+        this.request_alloc = new LinkedList<RequestAlloc>();
+    }
 
-        for (int k = 0; k < num_flow; k++) {
-            for (int i = 0; i < num_vertex; i++)
-                for (int j = 0; j < num_vertex; j++)
-                    F_alloc[i][j][k] = 0;
-            R_alloc[k] = 0;
-            FlowSeq[k] = 0;
+    public List<RequestAlloc> getAllRequestAlloc() { return this.request_alloc;}
+
+    public RequestAlloc getRequestAllocbyIndex (int index) {
+        return this.request_alloc.get(index);
+    }
+
+    public RequestAlloc getRequestAllocbymSeq (int mSeq) {
+        for (int i=0; i<this.request_alloc.size(); i++) {
+            if (this.request_alloc.get(i).getmSeq() == mSeq)
+                return this.request_alloc.get(i);
         }
     }
 
-    public void setF_allocbyFlow() {}
-
-    public void setR_alloc() {}
-
-    public long[][][] getF_alloc() {return F_alloc;}
-
-    public long[] getR_alloc() {return R_alloc;}
+    public void setAllRequestAlloc(List<RequestAlloc> request_alloc) {
+        this.request_alloc = request_alloc;
+    }
 }

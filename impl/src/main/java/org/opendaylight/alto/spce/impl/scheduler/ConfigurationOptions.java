@@ -27,6 +27,8 @@ public class ConfigurationOptions {
     public static final int MINHOP_REPLICA = 0;
     public static final int ENUM_REPLICA = 1;
     public static final int HERUISTIC_REPLICA = 2;
+    public static final int RANDOM_REPLICA = 3;
+    public static final int OPPORTUNISTIC_REPLICA = 4;
 
     /*Scheduling mode*/
     public static final int ONLINE_OMFRA = 0;

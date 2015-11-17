@@ -83,81 +83,77 @@ public class OMFRA {
     public List<OMFRAAllocPolicy> Scheduler(BandwidthTopology topology,
                                             List<DataTransferRequest> request,
                                             int newRequestIdx) {
-        int num_vertex = topology.getTopologySize();
-        int num_flow = flow.size();
-        int num_request = request.size();
+        //int num_vertex = topology.getTopologySize();
+        //int num_flow = flow.size();
+        //int num_request = request.size();
         List<OMFRAAllocPolicy> AllocPolicy = new LinkedList<OMFRAAllocPolicy>();
+        List<DataTransferRequest> processedRequest = new LinkedList<DataTransferRequest>();
         //AllocPolicy.add(new OMFRAAllocPolicy(num_vertex, num_flow));
 
         if (!this.fileSlicingOption) {
-            List<DataTransferFlow> chosenNewFlow =
-                    replicaSelector(topology, request, newRequestIdx, flow, newFlowIdx);
+            processedRequest =
+                    replicaSelector(topology, request, newRequestIdx);
             //TODO: update flow before scheduling
         }
+        else
+            processedRequest = request;
 
         switch (this.schedulingMode) {
             case ConfigurationOptions.ONLINE_OMFRA:
-                AllocPolicy = OMFRA_Core(topology, request, flow);
+                AllocPolicy = OMFRA_Core(topology, processedRequest);
                 return AllocPolicy;
             case ConfigurationOptions.OFFLINE_OMFRA:
-                AllocPolicy = OMFRA_Offline(topology, request, flow);
+                AllocPolicy = OMFRA_Offline(topology, processedRequest);
                 return AllocPolicy;
         }
         //TODO: catch exception needed??
         return AllocPolicy;
     }
 
-    public List<DataTransferFlow> replicaSelector(BandwidthTopology topology,
+    public List<DataTransferRequest> replicaSelector(BandwidthTopology topology,
                                                    List<DataTransferRequest> request,
-                                                   int newRequestIdx,
-                                                   List<DataTransferFlow> flow,
-                                                   int newFlowIdx) {
-        int num_vertex = topology.getTopologySize();
-        int num_flow = flow.size();
-        int num_request = request.size();
+                                                   int newRequestIdx) {
 
-        List<DataTransferFlow> chosenNewFlow = new LinkedList<DataTransferFlow>();
+        List<DataTransferRequest> processedRequest = new LinkedList<DataTransferRequest>();
 
         switch (this.replicaSelectionMode) {
             case ConfigurationOptions.MINHOP_REPLICA:
-                chosenNewFlow =
-                        minHopReplica(flow, newFlowIdx);
-                return chosenNewFlow;
+                processedRequest =
+                        minHopReplica(request, newRequestIdx);
+                return processedRequest;
             case ConfigurationOptions.ENUM_REPLICA:
-                chosenNewFlow =
-                        enumReplica(topology, request, newRequestIdx, flow, newFlowIdx);
-                return chosenNewFlow;
+                processedRequest =
+                        enumReplica(topology, request, newRequestIdx);
+                return processedRequest;
             case ConfigurationOptions.HERUISTIC_REPLICA:
-                chosenNewFlow =
-                        heruisticReplica(topology, request, newRequestIdx, flow, newFlowIdx);
-                return chosenNewFlow;
+                processedRequest =
+                        heruisticReplica(topology, request, newRequestIdx);
+                return processedRequest;
         }
 
-        return chosenNewFlow;
+        return processedRequest;
     }
 
-    private List<DataTransferFlow> minHopReplica(List<DataTransferFlow> flow,
+    private List<DataTransferRequest> minHopReplica(List<DataTransferRequest> request,
                                                  int newFlowIdx) {
         List<DataTransferFlow> chosenNewFlow = new LinkedList<DataTransferFlow>();
 
         return chosenNewFlow;
     }
 
-    private List<DataTransferFlow> enumReplica(BandwidthTopology topology,
+    private List<DataTransferRequest> enumReplica(BandwidthTopology topology,
                                                    List<DataTransferRequest> request,
                                                    int newRequestIdx,
-                                                   List<DataTransferFlow> flow,
-                                                   int newFlowIdx) {
+                                                   ) {
         List<DataTransferFlow> chosenNewFlow = new LinkedList<DataTransferFlow>();
 
         return chosenNewFlow;
     }
 
-    private List<DataTransferFlow> heruisticReplica(BandwidthTopology topology,
+    private List<DataTransferRequest> heruisticReplica(BandwidthTopology topology,
                                                 List<DataTransferRequest> request,
                                                 int newRequestIdx,
-                                                List<DataTransferFlow> flow,
-                                                int newFlowIdx) {
+                                                ) {
         List<DataTransferFlow> chosenNewFlow = new LinkedList<DataTransferFlow>();
 
         return chosenNewFlow;
@@ -165,16 +161,19 @@ public class OMFRA {
 
     private List<OMFRAAllocPolicy> OMFRA_Core(BandwidthTopology topology,
                                         List<DataTransferRequest> request) {
-        //int num_vertex = topology.getTopologySize();
-        //int num_flow = flow.length;
-        //int num_request = request.length;
         int maxPri = getMaxPriority(request);
         int mIdx;
+        OMFRAAllocPolicy Sol;// = new OMFRAAllocPolicy();
+        OMFRAAllocPolicy tmpSol;// = new OMFRAAllocPolicy();
         List<OMFRAAllocPolicy> AllocPolicy = new LinkedList<OMFRAAllocPolicy>();
         List<DataTransferRequest> M_p = new LinkedList<DataTransferRequest>();
         List<DataTransferRequest> M_unsat = new LinkedList<DataTransferRequest>();
         List<DataTransferRequest> M_sat = new LinkedList<DataTransferRequest>();
+        List<DataTransferRequest> tmp_M_unsat = new LinkedList<DataTransferRequest>();
+        List<DataTransferRequest> tmp_M_sat = new LinkedList<DataTransferRequest>();
         List<Double> Z_sat = new LinkedList<Double>();
+        List<Double> tmp_Z_sat = new LinkedList<Double>();
+
 
         for (int priority=maxPri; i>=0; i--) {
             M_p = getReuqestbyPriority(request, priority);
@@ -184,7 +183,7 @@ public class OMFRA {
                 M_unsat = M_p;
 
                 while (!M_unsat.isEmpty()) {
-                    OMFRAAllocPolicy Sol = MMFSolver(topology, M_unsat, M_sat, Z_sat);
+                    Sol = MMFSolver(topology, M_unsat, M_sat, Z_sat);
 
                     if (M_unsat.size() == 1) {
                         M_sat.add(M_unsat.get(0));
@@ -193,10 +192,40 @@ public class OMFRA {
                         continue;
                     }
 
+                    mIdx = 0;
+                    while (mIdx <= M_unsat.size()) {
+                        if (!FindResidualPath(getResidualTopology(topology, Sol),
+                                M_unsat.get(mIdx))) {
+                            tmp_M_unsat.add(M_unsat.get(mIdx));
+                            tmp_M_sat = M_sat;
+                            tmp_Z_sat = Z_sat;
+                            for (int i=0; i<M_unsat.size(); i++) {
+                                if (i != mIdx) {
+                                    tmp_M_sat.add(M_unsat.get(i));
+                                    tmp_Z_sat.add(Sol.getZ());
+                                }
+                            }
+                            tmpSol = MMFSolver(topology, tmp_M_unsat, tmp_M_sat, tmp_Z_sat);
 
+                            if ((Sol.getZ() == tmpSol.getZ())
+                                    || (Math.abs(Sol.getZ() - tmpSol.getZ()) <= 0.0001)) {
+                                M_sat.add(M_unsat.get(mIdx));
+                                M_unsat.remove(mIdx);
+                                Z_sat.add(Sol.getZ());
+                            }
+                            else {
+                                mIdx++;
+                            }
 
+                            tmp_M_unsat.clear();
+                            tmp_M_sat.clear();
+                            tmp_Z_sat.clear();
+                        }
+                    }
                 }
             }
+
+            AllocPolicy.addAll(getFeasibleAllocation(topology, M_sat, Z_sat));
 
             M_p.clear();
             M_unsat.clear();
@@ -204,8 +233,6 @@ public class OMFRA {
             Z_sat.clear();
 
         }
-
-
 
         return AllocPolicy; //TODO
     }
@@ -237,6 +264,22 @@ public class OMFRA {
                 resultRequest.add(request.get(i));
         }
         return resultRequest;
+    }
+
+    private BandwidthTopology getResidualTopology(BandwidthTopology topology,
+                                                  OMFRAAllocPolicy Alloc) {
+        BandwidthTopology residualTopology = topology;
+        List<RequestAlloc> requestAllocs = Alloc.getAllRequestAlloc();
+
+        for (int i=0; i<requestAllocs.size(); i++) {
+            for (int j=0; j<requestAllocs.get(i).getAllFlowAlloc().size(); j++) {
+                if (requestAllocs.get(i).getAllFlowAlloc().get(j).getFlowAllocStatus()) {
+                    residualTopology.setResidualBandwidthTopology(requestAllocs.get(i).getAllFlowAlloc().get(j).getAllF_alloc());
+                }
+            }
+        }
+
+        return residualTopology;
     }
 
     private boolean FindResidualPath(BandwidthTopology tmpTopology,
@@ -305,9 +348,11 @@ public class OMFRA {
         return exitflag;
     }
 
-    private long[] FeasibleSolution () { //TODO
-        long [] list = new long [2];
-        return list;
+    private List<OMFRAAllocPolicy> getFeasibleAllocation (BandwidthTopology topology,
+                                                     List<DataTransferRequest> satRequest,
+                                                     List<Double> Z_sat) { //TODO
+        List<OMFRAAllocPolicy> feasibleAlloc = new LinkedList<OMFRAAllocPolicy>();
+        return feasibleAlloc;
     }
 
     public OMFRAAllocPolicy MMFSolver(BandwidthTopology topology,

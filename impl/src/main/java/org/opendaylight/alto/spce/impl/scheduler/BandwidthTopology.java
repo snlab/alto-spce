@@ -51,6 +51,12 @@ public class BandwidthTopology {
         this.BandwidthMap = bandwidthMap.clone();
     }
 
+    public void setResidualBandwidthTopology(long usedBandwidthMap[][]) {
+        for (int src=0; src<this.BandwidthMap.length; src++)
+            for (int dst=0; dst<this.BandwidthMap.length; dst++)
+                this.BandwidthMap[src][dst] -= usedBandwidthMap[src][dst];
+    }
+
     public long getBandwidth(int src, int dst) {
         return this.BandwidthMap[src][dst];
     }

@@ -16,14 +16,16 @@ public class DataTransferFlow {
     private List<Integer> path;
     private long minBandwidth;
     private long maxBandwidth;
+    private boolean status;
 
     public DataTransferFlow(int kSeq, int source, List<Integer> path,
-                            long minBandwidth, long maxBandwidth) {
+                            long minBandwidth, long maxBandwidth, boolean status) {
         this.kSeq = kSeq;
         this.source = source;
         this.path = path;
         this.minBandwidth = minBandwidth;
         this.maxBandwidth = maxBandwidth;
+        this.status = status;
     }
 
     public int getkSeq() {
@@ -38,7 +40,11 @@ public class DataTransferFlow {
         return this.path;
     }
 
-    public long getMinBandwidth() { return this.minBandwidth;}
+    public long getMinBandwidth() { return this.minBandwidth; }
 
-    public long getMaxBandwidth() { return this.maxBandwidth;}
+    public long getMaxBandwidth() { return this.maxBandwidth; }
+
+    public boolean getFlowStatus() { return this.status; }
+
+
 }

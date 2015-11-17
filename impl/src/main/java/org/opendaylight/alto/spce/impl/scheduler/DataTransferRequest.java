@@ -8,6 +8,7 @@
 
 package org.opendaylight.alto.spce.impl.scheduler;
 
+import java.util.LinkedList;
 import java.util.List;
 
 public class DataTransferRequest {
@@ -49,4 +50,15 @@ public class DataTransferRequest {
     }
 
     public List<DataTransferFlow> getFlow() { return this.flow;}
+
+    public List<DataTransferFlow> getActiveFlow() {
+        List<DataTransferFlow> activeFlow = new LinkedList<DataTransferFlow>();
+        for (int i = 0; i < this.flow.size(); i++) {
+            if (this.flow.get(i).getFlowStatus()) {
+                activeFlow.add(this.flow.get(i));
+            }
+        }
+        return activeFlow;
+    }
+
 }

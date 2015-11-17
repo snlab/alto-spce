@@ -37,7 +37,7 @@ public class FlowAlloc {
         return this.F_alloc[src][dst];
     }
 
-    public boolean getStatus() { return this.active; }
+    public boolean getFlowAllocStatus() { return this.active; }
 
     //public void setFlowAlloc(FlowAlloc object) {this = object;}
     public void setkSeq(int kSeq) { this.kSeq = kSeq; }

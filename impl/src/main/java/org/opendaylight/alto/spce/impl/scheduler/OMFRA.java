@@ -217,25 +217,30 @@ public class OMFRA {
     }
 
     private boolean FindResidualPath(BandwidthTopology tmpTopology,
-                                     DataTransferRequest request,
-                                     DataTransferFlow[] flow) {
-        int num_flow = flow.length;
+                                     DataTransferRequest request) {
+        List<DataTransferFlow> activeFlow = request.getActiveFlow();
+        int num_flow = activeFlow.size();
+
+        if (num_flow ==0) {
+            //TODO: add output error info
+            return false;
+        }
 
         for (int k=0; k<num_flow; k++) {
-            if (flow[k].getPath().isEmpty()) {//Flow path is not fixed
-                if (FindPath(tmpTopology, flow[k].getSource(), request.getDestination())) {
+            if (activeFlow.get(k).getPath().isEmpty()) {//Flow path is not fixed
+                if (FindPath(tmpTopology, activeFlow.get(k).getSource(), request.getDestination())) {
                     return true;
                 }
             }
             else {//Flow path is fixed
-                List<Integer> path = flow[k].getPath();
+                List<Integer> path = activeFlow.get(k).getPath();
                 boolean found = true;
                 for (int i=0; i<path.size()-1; i++) {
                     if (tmpTopology.getBandwidth(path.get(i), path.get(i+1)) == 0) {
                         found = false;
                         break;
                     }
-                    else if (tmpTopology.getBandwidth(path.get(i), path.get(i+1)) < flow[i].getMinBandwidth()) {
+                    else if (tmpTopology.getBandwidth(path.get(i), path.get(i+1)) < activeFlow.get(k).getMinBandwidth()) {
                         found = false;
                         break;
                     }

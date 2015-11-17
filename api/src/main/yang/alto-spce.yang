@@ -92,34 +92,42 @@ module alto-spce {
 
     rpc alto-spce-scheduler {
         input {
-            leaf m-seq {
-                type uint32;
-            }
-            leaf priority {
-                type uint32;
-            }
-            leaf arrival-time {
-                type uint64;
-            }
-            leaf destination {
-                type inet:ipv4-address;
-            }
-            leaf volume {
-                type uint64;
-            }
-            list flow {
-                leaf k-seq {
+            list transfer-request {
+                leaf m-seq {
                     type uint32;
                 }
-                leaf source {
+                leaf priority {
+                    type uint32;
+                }
+                leaf arrival-time {
+                    type uint64;
+                }
+                leaf destination {
                     type inet:ipv4-address;
                 }
-                leaf min-bandwidth {
+                leaf volume {
                     type uint64;
                 }
-                leaf max-bandwidth {
-                    type uint64;
+                list transfer-flow {
+                    leaf k-seq {
+                        type uint32;
+                    }
+                    leaf source {
+                        type inet:ipv4-address;
+                    }
+                    leaf min-bandwidth {
+                        type uint64;
+                    }
+                    leaf max-bandwidth {
+                        type uint64;
+                    }
                 }
+            }
+            leaf request-index {
+                type uint32;
+            }
+            leaf flow-index {
+                type uint32;
             }
         }
         output {

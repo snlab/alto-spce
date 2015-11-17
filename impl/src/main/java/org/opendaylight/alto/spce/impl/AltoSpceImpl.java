@@ -10,6 +10,11 @@ package org.opendaylight.alto.spce.impl;
 
 import com.google.common.base.Optional;
 import org.opendaylight.alto.spce.impl.algorithm.PathComputation;
+import org.opendaylight.alto.spce.impl.scheduler.BandwidthTopology;
+import org.opendaylight.alto.spce.impl.scheduler.DataTransferFlow;
+import org.opendaylight.alto.spce.impl.scheduler.DataTransferRequest;
+import org.opendaylight.alto.spce.impl.scheduler.OMFRA;
+import org.opendaylight.alto.spce.impl.scheduler.OMFRAAllocPolicy;
 import org.opendaylight.alto.spce.impl.util.FlowManager;
 import org.opendaylight.alto.spce.impl.util.InventoryReader;
 import org.opendaylight.controller.md.sal.binding.api.DataBroker;
@@ -24,11 +29,16 @@ import org.opendaylight.yang.gen.v1.urn.opendaylight.alto.spce.rev151106.AltoSpc
 import org.opendaylight.yang.gen.v1.urn.opendaylight.alto.spce.rev151106.AltoSpceRemoveOutputBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.alto.spce.rev151106.AltoSpceSchedulerInput;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.alto.spce.rev151106.AltoSpceSchedulerOutput;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.alto.spce.rev151106.AltoSpceSchedulerOutputBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.alto.spce.rev151106.AltoSpceService;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.alto.spce.rev151106.AltoSpceSetupInput;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.alto.spce.rev151106.AltoSpceSetupOutput;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.alto.spce.rev151106.AltoSpceSetupOutputBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.alto.spce.rev151106.ErrorCodeType;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.alto.spce.rev151106.alto.spce.scheduler.input.TransferRequest;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.alto.spce.rev151106.alto.spce.scheduler.input.transfer.request.TransferFlow;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.alto.spce.rev151106.alto.spce.scheduler.output.AllocPolicy;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.alto.spce.rev151106.alto.spce.scheduler.output.AllocPolicyBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.alto.spce.rev151106.alto.spce.setup.input.ConstraintMetric;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.alto.spce.rev151106.alto.spce.setup.input.ConstraintMetricBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.alto.spce.rev151106.alto.spce.setup.input.Endpoint;
@@ -69,6 +79,7 @@ import org.slf4j.LoggerFactory;
 import java.math.BigInteger;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 
@@ -81,6 +92,8 @@ public class AltoSpceImpl implements AltoSpceService {
     private FlowManager flowManager;
     private InventoryReader inventoryReader;
     private PathComputation pathComputation;
+    private OMFRA omrfa;
+    private Map<String, Integer> nodeNumMap; //TODO: Maintain this map.
 
     public AltoSpceImpl(SalFlowService salFlowService,
                         NetworkTrackerService networkTrackerService,
@@ -91,6 +104,7 @@ public class AltoSpceImpl implements AltoSpceService {
         this.flowManager = new FlowManager(salFlowService);
         this.inventoryReader = new InventoryReader(dataBroker);
         this.pathComputation = new PathComputation(networkTrackerService);
+        this.omrfa = new OMFRA(false, false, 0, 0);
     }
 
     @Override
@@ -126,7 +140,44 @@ public class AltoSpceImpl implements AltoSpceService {
 
     @Override
     public Future<RpcResult<AltoSpceSchedulerOutput>> altoSpceScheduler(AltoSpceSchedulerInput input) {
-        return null;
+        List<DataTransferRequest> dataTransferRequests = new LinkedList<>();
+        for (TransferRequest transferRequest : input.getTransferRequest()) {
+            int mSeq = transferRequest.getMSeq().intValue();
+            int priority = transferRequest.getPriority().intValue();
+            long arrivalTime = transferRequest.getArrivalTime().longValue();
+
+            String dstTpIdStr = getAttachTp(transferRequest.getDestination()).getValue();
+            String dstNodeIdStr = dstTpIdStr.substring(0, dstTpIdStr.lastIndexOf(":"));
+            int destination = nodeNumMap.get(dstNodeIdStr);
+
+            long volume = transferRequest.getVolume().longValue();
+
+            List<DataTransferFlow> dataTransferFlows = new LinkedList<>();
+            for (TransferFlow transferFlow : transferRequest.getTransferFlow()) {
+                int kSeq = transferFlow.getKSeq().intValue();
+
+                String srcTpIdStr = getAttachTp(transferFlow.getSource()).getValue();
+                String srcNodeIdStr = srcTpIdStr.substring(0, srcTpIdStr.lastIndexOf(":"));
+                int source = nodeNumMap.get(srcNodeIdStr);
+
+                List<Integer> path = null; //TODO: Get path by <src, dst> pair.
+                long minBandwidth = transferFlow.getMinBandwidth().longValue();
+                long maxBandwidth = transferFlow.getMaxBandwidth().longValue();
+                dataTransferFlows.add(new DataTransferFlow(kSeq, source, path, minBandwidth, maxBandwidth, true)); //TODO: Set status.
+            }
+            dataTransferRequests.add(new DataTransferRequest(mSeq, priority, arrivalTime, destination, volume, dataTransferFlows));
+        }
+        int newRequestIndex = input.getRequestIndex().intValue();
+        int newFlowIndex = input.getFlowIndex().intValue();
+        List<OMFRAAllocPolicy> omfraAllocPolicies = this.omrfa.Scheduler(new BandwidthTopology(getTopology(), this.networkTrackerService),
+                dataTransferRequests, newRequestIndex, new LinkedList<DataTransferFlow>(), newFlowIndex);
+
+        List<AllocPolicy> allocPolicies = new LinkedList<>();
+        for (OMFRAAllocPolicy omfraAllocPolicy : omfraAllocPolicies) {
+            allocPolicies.add(new AllocPolicyBuilder().build()); //TODO: Build output for rpc.
+        }
+        AltoSpceSchedulerOutput output = new AltoSpceSchedulerOutputBuilder().setAllocPolicy(allocPolicies).build();
+        return RpcResultBuilder.success(output).buildFuture();
     }
 
     private List<ConstraintMetric> compressConstraint(List<ConstraintMetric> constraintMetrics) {

@@ -61,4 +61,11 @@ public class DataTransferRequest {
         return activeFlow;
     }
 
+    public void setmSeq(int mSeq) { this.mSeq = mSeq; }
+    public void setPriorituy(int priority) { this.priority = priority; }
+    public void setArrivalTime(long arrivalTime) { this.arrivalTime = arrivalTime; }
+    public void setDestination(int destination) { this.destination = destination; }
+    public void setVolume(long volume) { this.volume = volume; }
+    public void setFlow(List<DataTransferFlow> flow) { this.flow = flow; }
+
 }

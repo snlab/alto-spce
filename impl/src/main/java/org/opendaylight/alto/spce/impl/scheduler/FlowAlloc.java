@@ -17,12 +17,12 @@ public class FlowAlloc {
     private int kSeq;
     private long R_alloc;
     private long F_alloc[][];
-    private boolean active;
+    private boolean status;
 
-    public FlowAlloc(int kSeq, int num_vertex, boolean active) {
+    public FlowAlloc(int kSeq, int num_vertex, boolean status) {
         this.kSeq = kSeq;
         this.R_alloc = 0;
-        this.active = active;
+        this.status = status;
 
         this.F_alloc = new long[num_vertex][num_vertex];
         for (int i = 0; i < num_vertex; i++)
@@ -37,7 +37,7 @@ public class FlowAlloc {
         return this.F_alloc[src][dst];
     }
 
-    public boolean getFlowAllocStatus() { return this.active; }
+    public boolean getFlowAllocStatus() { return this.status; }
 
     //public void setFlowAlloc(FlowAlloc object) {this = object;}
     public void setkSeq(int kSeq) { this.kSeq = kSeq; }
@@ -46,4 +46,6 @@ public class FlowAlloc {
     public void setF_alloc_entry(long F_alloc_entry, int src, int dst) {
         this.F_alloc[src][dst] = F_alloc_entry;
     }
+    public void setFlowAllocStatus(boolean status) { this.status = status; }
+
 }

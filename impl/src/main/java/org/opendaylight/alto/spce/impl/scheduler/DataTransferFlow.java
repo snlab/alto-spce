@@ -46,5 +46,11 @@ public class DataTransferFlow {
 
     public boolean getFlowStatus() { return this.status; }
 
+    public void setkSeq(int kSeq) { this.kSeq = kSeq; }
+    public void setSource(int source) { this.source = source; }
+    public void setPath(List<Integer> path) { this.path = path; }
+    public void setMinBandwidth(long minBandwidth) { this.minBandwidth = minBandwidth; }
+    public void setMaxBandwidth(long maxBandwidth) { this.maxBandwidth = maxBandwidth; }
+    public void setFlowStatus(boolean status) { this.status = status; }
 
 }

@@ -12,9 +12,7 @@ package org.opendaylight.alto.spce.impl.scheduler;
 import com.joptimizer.optimizers.LPOptimizationRequest;
 import com.joptimizer.optimizers.LPPrimalDualMethod;
 
-import java.util.Arrays;
-import java.util.LinkedList;
-import java.util.List;
+import java.util.*;
 
 public class OMFRA {
 
@@ -84,9 +82,7 @@ public class OMFRA {
 
     public List<OMFRAAllocPolicy> Scheduler(BandwidthTopology topology,
                                             List<DataTransferRequest> request,
-                                            int newRequestIdx,
-                                            List<DataTransferFlow> flow,
-                                            int newFlowIdx) {
+                                            int newRequestIdx) {
         int num_vertex = topology.getTopologySize();
         int num_flow = flow.size();
         int num_request = request.size();
@@ -168,16 +164,44 @@ public class OMFRA {
     }
 
     private List<OMFRAAllocPolicy> OMFRA_Core(BandwidthTopology topology,
-                                        List<DataTransferRequest> request,
-                                        List<DataTransferFlow> flow) {
-        int num_vertex = topology.getTopologySize();
-        int num_flow = flow.length;
-        int num_request = request.length;
+                                        List<DataTransferRequest> request) {
+        //int num_vertex = topology.getTopologySize();
+        //int num_flow = flow.length;
+        //int num_request = request.length;
         int maxPri = getMaxPriority(request);
-
+        int mIdx;
         List<OMFRAAllocPolicy> AllocPolicy = new LinkedList<OMFRAAllocPolicy>();
+        List<DataTransferRequest> M_p = new LinkedList<DataTransferRequest>();
+        List<DataTransferRequest> M_unsat = new LinkedList<DataTransferRequest>();
+        List<DataTransferRequest> M_sat = new LinkedList<DataTransferRequest>();
+        List<Double> Z_sat = new LinkedList<Double>();
 
         for (int priority=maxPri; i>=0; i--) {
+            M_p = getReuqestbyPriority(request, priority);
+
+
+            if (!M_p.isEmpty()) {
+                M_unsat = M_p;
+
+                while (!M_unsat.isEmpty()) {
+                    OMFRAAllocPolicy Sol = MMFSolver(topology, M_unsat, M_sat, Z_sat);
+
+                    if (M_unsat.size() == 1) {
+                        M_sat.add(M_unsat.get(0));
+                        M_unsat.remove(0);
+                        Z_sat.add(Sol.getZ());
+                        continue;
+                    }
+
+
+
+                }
+            }
+
+            M_p.clear();
+            M_unsat.clear();
+            M_sat.clear();
+            Z_sat.clear();
 
         }
 
@@ -187,8 +211,7 @@ public class OMFRA {
     }
 
     private List<OMFRAAllocPolicy> OMFRA_Offline(BandwidthTopology topology,
-                                              List<DataTransferRequest> request,
-                                              List<DataTransferFlow> flow) {
+                                              List<DataTransferRequest> request) {
         int num_vertex = topology.getTopologySize();
         int num_flow = flow.length;
         int num_request = request.length;
@@ -287,7 +310,10 @@ public class OMFRA {
         return list;
     }
 
-    public double [] MMFSolver(BandwidthTopology topology, DataTransferRequest[] unsatDataTransferRequests, DataTransferRequest[] satDataTransferRequests, DataTransferFlow[] flow, double[] zSat) { //TODO::handle Routing
+    public OMFRAAllocPolicy MMFSolver(BandwidthTopology topology,
+                               List<DataTransferRequest> unsatDataTransferRequests,
+                               List<DataTransferRequest> satDataTransferRequests,
+                               List<Double> zSat) { //TODO::handle Routing
 
         //List of variables : fij || rk || z
         int numVertex = topology.getTopologySize();

@@ -37,6 +37,8 @@ public class OMFRAAllocPolicy {
         }
     }
 
+    public double getZ() { return this.z; }
+
     public void setAllRequestAlloc(List<RequestAlloc> request_alloc) {
         this.request_alloc = request_alloc;
     }

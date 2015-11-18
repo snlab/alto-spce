@@ -14,6 +14,7 @@ package org.opendaylight.alto.spce.impl.scheduler;
 
 import org.gnu.glpk.GLPK;
 import org.gnu.glpk.GLPKConstants;
+import org.gnu.glpk.GlpkException;
 import org.gnu.glpk.SWIGTYPE_p_double;
 import org.gnu.glpk.SWIGTYPE_p_int;
 import org.gnu.glpk.glp_prob;
@@ -431,6 +432,8 @@ public class OMFRA {
                                List<DataTransferRequest> satDataTransferRequests,
                                List<Double> zSat) {
         OMFRAAllocPolicy Sol = new OMFRAAllocPolicy();
+        SWIGTYPE_p_int ind;
+        SWIGTYPE_p_double val;
         glp_prob MMF = GLPK.glp_create_prob();
         System.out.println("Problem created");
         GLPK.glp_set_prob_name(MMF, "MMF");
@@ -463,18 +466,66 @@ public class OMFRA {
                             k*num_vertex*num_vertex+i*num_vertex+j+1,
                             "f" + Integer.toString(k) + "s" + Integer.toString(i)
                             + "d" + Integer.toString(j));
+                    GLPK.glp_set_col_kind(MMF,
+                            k*num_vertex*num_vertex+i*num_vertex+j+1,
+                            GLPKConstants.GLP_CV);
+                    GLPK.glp_set_col_bnds(MMF,
+                            k*num_vertex*num_vertex+i*num_vertex+j+1,
+                            GLPKConstants.GLP_LO, 0, Double.MAX_VALUE);
                 }
             GLPK.glp_set_col_name(MMF,
                                 num_vertex*num_vertex*num_flow+k+1,
-                                "f"+Integer.toString(k));
+                                "rf"+Integer.toString(k));
+            GLPK.glp_set_col_kind(MMF,
+                    num_vertex*num_vertex*num_flow+k+1,
+                    GLPKConstants.GLP_CV);
+            int tmpCount = 0;
+            for (int m = 0; m < num_flow; m++) {
+                if (m < num_unsat_flow)
+                    tmpCount += unsatDataTransferRequests.get(m).getActiveFlow().size();
+                else
+                    tmpCount += satDataTransferRequests.get(m).getActiveFlow().size();
+                if (tmpCount > k) {
+                    GLPK.glp_set_col_bnds(MMF,
+                            num_vertex*num_vertex*num_flow+k+1,
+                            GLPKConstants.GLP_DB, 0, satDataTransferRequests.get(m).getVolume());
+                    break;
+                }
+            }
         }
 
         GLPK.glp_set_col_name(MMF,
                             num_vertex*num_vertex*num_flow+num_flow+1,
                             "z");
+        GLPK.glp_set_col_kind(MMF,
+                num_vertex*num_vertex*num_flow+num_flow+1,
+                GLPKConstants.GLP_CV);
+        GLPK.glp_set_col_bnds(MMF,
+                num_vertex*num_vertex*num_flow+num_flow+1,
+                GLPKConstants.GLP_DB, 0, 1);
+
 
         //Build coefficient matrix for link capacity
-        
+
+        ind = GLPK.new_intArray(1);
+        val = GLPK.new_doubleArray(1);
+
+        for (int i = 0; i < num_vertex; i++)
+            for (int j = 0; j < num_vertex; j++) {
+                GLPK.glp_add_rows(MMF, 1);
+                GLPK.glp_set_row_name(MMF, i*num_vertex+j+1,
+                        "capacity s" + Integer.toString(i) + "d" + Integer.toString(j));
+                for (int k = 0; k < num_flow; k++) {
+                    GLPK.intArray_setitem(ind, 1,
+                                        k*num_vertex*num_vertex+i*num_vertex+j+1);
+                    GLPK.doubleArray_setitem(val, 1, 1);
+                    GLPK.glp_set_mat_row(MMF, i*num_vertex+j+1, 1, ind, val);
+
+                }
+                GLPK.glp_set_row_bnds(MMF, i*num_vertex+j+1,
+                        GLPKConstants.GLP_DB, 0, topology.getBandwidth(i, j));
+            }
+
 
 
 

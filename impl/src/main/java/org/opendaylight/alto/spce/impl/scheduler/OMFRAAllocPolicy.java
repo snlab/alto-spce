@@ -35,11 +35,16 @@ public class OMFRAAllocPolicy {
             if (this.request_alloc.get(i).getmSeq() == mSeq)
                 return this.request_alloc.get(i);
         }
+        return new RequestAlloc(Integer.MAX_VALUE);
     }
 
     public double getZ() { return this.z; }
 
     public void setAllRequestAlloc(List<RequestAlloc> request_alloc) {
         this.request_alloc = request_alloc;
+    }
+
+    public void addRequestAllocEntry(RequestAlloc request_alloc_entry) {
+        this.request_alloc.add(request_alloc_entry);
     }
 }

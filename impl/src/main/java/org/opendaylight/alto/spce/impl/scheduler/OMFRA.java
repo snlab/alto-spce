@@ -9,8 +9,15 @@
 
 package org.opendaylight.alto.spce.impl.scheduler;
 
-import com.joptimizer.optimizers.LPOptimizationRequest;
-import com.joptimizer.optimizers.LPPrimalDualMethod;
+//import com.joptimizer.optimizers.LPOptimizationRequest;
+//import com.joptimizer.optimizers.LPPrimalDualMethod;
+
+import org.gnu.glpk.GLPK;
+import org.gnu.glpk.GLPKConstants;
+import org.gnu.glpk.SWIGTYPE_p_double;
+import org.gnu.glpk.SWIGTYPE_p_int;
+import org.gnu.glpk.glp_prob;
+import org.gnu.glpk.glp_smcp;
 
 import java.util.*;
 
@@ -142,17 +149,17 @@ public class OMFRA {
                 return;
                 //return
             case ConfigurationOptions.OPPORTUNISTIC_REPLICA:
-                opportunitsticReplica(request, newRequestIdx);
+                opportunisticReplica(request, newRequestIdx);
                 return;
             default:
-                opportunitsticReplica(request, newRequestIdx);
+                opportunisticReplica(request, newRequestIdx);
                 return;
                 //return request;
         }
 //        return request;
     }
 
-    private void opportunitsticReplica(List<DataTransferRequest> request,
+    private void opportunisticReplica(List<DataTransferRequest> request,
                                                     int newRequestIdx) {
         int num_request = request.size();
         int num_flow;
@@ -202,7 +209,7 @@ public class OMFRA {
                     chosenFlowIdx = j;
                 }
             }
-            
+
             for (int j = 0; j < num_flow; j++) {
                 if (j==chosenFlowIdx)
                     request.get(i).getFlow().get(j).setFlowStatus(true);
@@ -242,7 +249,7 @@ public class OMFRA {
         List<Double> tmp_Z_sat = new LinkedList<Double>();
 
 
-        for (int priority=maxPri; i>=0; i--) {
+        for (int priority=maxPri; priority>=0; priority--) {
             M_p = getReuqestbyPriority(request, priority);
 
 
@@ -422,11 +429,78 @@ public class OMFRA {
     public OMFRAAllocPolicy MMFSolver(BandwidthTopology topology,
                                List<DataTransferRequest> unsatDataTransferRequests,
                                List<DataTransferRequest> satDataTransferRequests,
-                               List<Double> zSat) { //TODO::handle Routing
+                               List<Double> zSat) {
+        OMFRAAllocPolicy Sol = new OMFRAAllocPolicy();
+        glp_prob MMF = GLPK.glp_create_prob();
+        System.out.println("Problem created");
+        GLPK.glp_set_prob_name(MMF, "MMF");
 
+        int unsat_num_request = unsatDataTransferRequests.size();
+        int sat_num_request = satDataTransferRequests.size();
+        int num_vertex = topology.getTopologySize();
+        int num_unsat_flow = 0;
+        int num_sat_flow = 0;
+        int num_flow;
+
+        for (int i = 0; i < unsat_num_request; i++)
+            num_unsat_flow += unsatDataTransferRequests.get(i).getActiveFlow().size();
+
+        for (int i = 0; i < sat_num_request; i++)
+            num_sat_flow += satDataTransferRequests.get(i).getActiveFlow().size();
+
+        num_flow = num_unsat_flow + num_sat_flow;
+
+        //Add column for each decision variable
+
+        GLPK.glp_add_cols(MMF, num_vertex*num_vertex*num_flow+num_flow+1);
+
+        //Set name for each column/decision variable
+        //IMPORTANT: column index starts from 1!!!
+        for (int k = 0; k < num_flow; k++) {
+            for (int i = 0; i < num_vertex; i++)
+                for (int j = 0; j < num_vertex; j++) {
+                    GLPK.glp_set_col_name(MMF,
+                            k*num_vertex*num_vertex+i*num_vertex+j+1,
+                            "f" + Integer.toString(k) + "s" + Integer.toString(i)
+                            + "d" + Integer.toString(j));
+                }
+            GLPK.glp_set_col_name(MMF,
+                                num_vertex*num_vertex*num_flow+k+1,
+                                "f"+Integer.toString(k));
+        }
+
+        GLPK.glp_set_col_name(MMF,
+                            num_vertex*num_vertex*num_flow+num_flow+1,
+                            "z");
+
+        //Build coefficient matrix for link capacity
+        
+
+
+
+        return Sol;
+        /*try
+        {
+            System.loadLibrary( "glpk_java" );
+        }
+        catch (UnsatisfiedLinkError e)
+
+        {
+
+            System.out.print("Cannot load glpk-java\n");
+            return Sol;
+        }*/
+
+
+
+
+
+
+/*
+        //TODO::handle Routing
         //List of variables : fij || rk || z
         int numVertex = topology.getTopologySize();
-        int numFlow = flow.length;
+        //int numFlow = flow.length;
         int numUnsat = unsatDataTransferRequests.length;
         int numSat = satDataTransferRequests.length;
         int numVariables = numVertex * numVertex * numFlow + numFlow + 1;
@@ -572,6 +646,6 @@ public class OMFRA {
             e.printStackTrace();
         }
 
-        return opt.getOptimizationResponse().getSolution();
+        return opt.getOptimizationResponse().getSolution();*/
     }
 }

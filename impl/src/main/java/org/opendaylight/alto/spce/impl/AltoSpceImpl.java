@@ -170,7 +170,7 @@ public class AltoSpceImpl implements AltoSpceService {
         int newRequestIndex = input.getRequestIndex().intValue();
         int newFlowIndex = input.getFlowIndex().intValue();
         List<OMFRAAllocPolicy> omfraAllocPolicies = this.omrfa.Scheduler(new BandwidthTopology(getTopology(), this.networkTrackerService),
-                dataTransferRequests, newRequestIndex, new LinkedList<DataTransferFlow>(), newFlowIndex);
+                dataTransferRequests, newRequestIndex);
 
         List<AllocPolicy> allocPolicies = new LinkedList<>();
         for (OMFRAAllocPolicy omfraAllocPolicy : omfraAllocPolicies) {

@@ -45,6 +45,7 @@ public class RequestAlloc {
             if (this.flow_alloc.get(i).getkSeq() == kSeq)
                 return this.flow_alloc.get(i);
         }
+        return new FlowAlloc(Integer.MAX_VALUE, 1, false);
     }
 
     public void setmSeq(int mSeq) { this.mSeq = mSeq; }

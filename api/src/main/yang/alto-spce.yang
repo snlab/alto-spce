@@ -135,11 +135,11 @@ module alto-spce {
                 leaf m-seq {
                     type uint32;
                 }
-                list flow-alloc {
+                list flow-policy {
                     leaf k-seq {
                         type uint32;
                     }
-                    leaf r-alloc {
+                    leaf flow-bandwidth {
                         type uint64;
                     }
                     leaf active {

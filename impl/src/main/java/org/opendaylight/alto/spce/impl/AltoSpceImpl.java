@@ -13,8 +13,10 @@ import org.opendaylight.alto.spce.impl.algorithm.PathComputation;
 import org.opendaylight.alto.spce.impl.scheduler.BandwidthTopology;
 import org.opendaylight.alto.spce.impl.scheduler.DataTransferFlow;
 import org.opendaylight.alto.spce.impl.scheduler.DataTransferRequest;
+import org.opendaylight.alto.spce.impl.scheduler.FlowAlloc;
 import org.opendaylight.alto.spce.impl.scheduler.OMFRA;
 import org.opendaylight.alto.spce.impl.scheduler.OMFRAAllocPolicy;
+import org.opendaylight.alto.spce.impl.scheduler.RequestAlloc;
 import org.opendaylight.alto.spce.impl.util.FlowManager;
 import org.opendaylight.alto.spce.impl.util.InventoryReader;
 import org.opendaylight.controller.md.sal.binding.api.DataBroker;
@@ -39,6 +41,8 @@ import org.opendaylight.yang.gen.v1.urn.opendaylight.alto.spce.rev151106.alto.sp
 import org.opendaylight.yang.gen.v1.urn.opendaylight.alto.spce.rev151106.alto.spce.scheduler.input.transfer.request.TransferFlow;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.alto.spce.rev151106.alto.spce.scheduler.output.AllocPolicy;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.alto.spce.rev151106.alto.spce.scheduler.output.AllocPolicyBuilder;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.alto.spce.rev151106.alto.spce.scheduler.output.alloc.policy.FlowPolicy;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.alto.spce.rev151106.alto.spce.scheduler.output.alloc.policy.FlowPolicyBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.alto.spce.rev151106.alto.spce.setup.input.ConstraintMetric;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.alto.spce.rev151106.alto.spce.setup.input.ConstraintMetricBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.alto.spce.rev151106.alto.spce.setup.input.Endpoint;
@@ -168,14 +172,26 @@ public class AltoSpceImpl implements AltoSpceService {
             dataTransferRequests.add(new DataTransferRequest(mSeq, priority, arrivalTime, destination, volume, dataTransferFlows));
         }
         int newRequestIndex = input.getRequestIndex().intValue();
-        int newFlowIndex = input.getFlowIndex().intValue();
         List<OMFRAAllocPolicy> omfraAllocPolicies = this.omrfa.Scheduler(new BandwidthTopology(getTopology(), this.networkTrackerService),
-                dataTransferRequests, newRequestIndex, new LinkedList<DataTransferFlow>(), newFlowIndex);
+                dataTransferRequests, newRequestIndex);
 
         List<AllocPolicy> allocPolicies = new LinkedList<>();
-        for (OMFRAAllocPolicy omfraAllocPolicy : omfraAllocPolicies) {
-            allocPolicies.add(new AllocPolicyBuilder().build()); //TODO: Build output for rpc.
+        OMFRAAllocPolicy omfraAllocPolicy = omfraAllocPolicies.get(0);
+        for (RequestAlloc requestAlloc : omfraAllocPolicy.getAllRequestAlloc()) {
+            List<FlowPolicy> flowPolicies = new LinkedList<>();
+            for (FlowAlloc flowAlloc : requestAlloc.getAllFlowAlloc()) {
+                flowPolicies.add(new FlowPolicyBuilder()
+                        .setKSeq((long) flowAlloc.getkSeq())
+                        .setActive(flowAlloc.getFlowAllocStatus())
+                        .setFlowBandwidth(BigInteger.valueOf(0)) //TODO: Extract bandwidth allocation for each flow.
+                        .build());
+            }
+            allocPolicies.add(new AllocPolicyBuilder()
+                    .setMSeq((long) requestAlloc.getmSeq())
+                    .setFlowPolicy(flowPolicies)
+                    .build());
         }
+
         AltoSpceSchedulerOutput output = new AltoSpceSchedulerOutputBuilder().setAllocPolicy(allocPolicies).build();
         return RpcResultBuilder.success(output).buildFuture();
     }

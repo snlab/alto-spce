@@ -445,6 +445,7 @@ public class OMFRA {
         int num_sat_flow = 0;
         int num_flow;
         int tmp_flow_count;
+        int routing_constraint_idx;
 
         for (int i = 0; i < unsat_num_request; i++)
             num_unsat_flow += unsatDataTransferRequests.get(i).getActiveFlow().size();
@@ -641,7 +642,8 @@ public class OMFRA {
             }
         }
 
-        //So far we already have num_vertex*num_vertex+unsat_num_request+num_flow*num_vertex rows
+        //So far we already have
+        //num_vertex*num_vertex+unsat_num_request+num_flow*num_vertex rows
         //Build coefficient matrix for saturated requests
         tmp_flow_count = 0;
         for (int i = 0; i < sat_num_request; i++) {
@@ -672,8 +674,41 @@ public class OMFRA {
             tmp_flow_count += num_flow_per_request;
         }
 
+        //So far we already have
+        //num_vertex*num_vertex+unsat_num_request+num_flow*num_vertex+sat_num_request rows
+        //Build coefficient matrix for paths
+        tmp_flow_count = 0;
+        routing_constraint_idx = 0;
+        for (int i = 0; i < unsat_num_request; i++) {
+            for (int j = 0; j < unsatDataTransferRequests.get(i).getActiveFlow().size(); j++) {
+                if (unsatDataTransferRequests.get(i).getActiveFlowbyIndex(j+1).getPath().size() > 0) {
+                    GLPK.glp_add_rows(MMF, 1);
+                    GLPK.glp_set_row_name(MMF,
+                            num_vertex*num_vertex+unsat_num_request+num_flow*num_vertex+sat_num_request+routing_constraint_idx+1,
+                            "unsat routing m" + Integer.toString(i) + "f" + Integer.toString(j));
+                    ind = GLPK.new_intArray(num_vertex*num_vertex);
+                    val = GLPK.new_doubleArray(num_vertex*num_vertex);
 
-            return Sol;
+                    for (int v_i = 0; v_i < num_vertex; v_i++)
+                        for (int v_j = 0; v_j < num_vertex; v_j++) {
+                            if (linkOnPath(unsatDataTransferRequests.get(i).getActiveFlowbyIndex(j+1).getPath(),
+                                    v_i, v_j) {
+
+                            }
+                        }
+
+                }
+            }
+        }
+
+        tmp_flow_count = 0;
+
+        for (int i = 0; i < sat_num_request; i++) {
+
+        }
+
+
+        return Sol;
         /*try
         {
             System.loadLibrary( "glpk_java" );
@@ -691,156 +726,18 @@ public class OMFRA {
 
 
 
-/*
-        //TODO::handle Routing
-        //List of variables : fij || rk || z
-        int numVertex = topology.getTopologySize();
-        //int numFlow = flow.length;
-        int numUnsat = unsatDataTransferRequests.length;
-        int numSat = satDataTransferRequests.length;
-        int numVariables = numVertex * numVertex * numFlow + numFlow + 1;
 
-        int numExp = numVariables;
-        double[] c = new double[numExp];
-        for (int i = 0; i < numExp; i++) c[i] = 0.;
-
-        int posZ = numExp - 1; // position of variable z
-        c[posZ] = -1.;
-
-        //inequalities constraints
-        numExp = numVertex * numVertex + numUnsat + numUnsat + numSat + 2 * numFlow * numVertex * numVertex;
-        double[][] G = new double[numExp][numVariables];
-        double[] h = new double[numExp];
-        for (int i = 0; i < numExp; i++) {
-            h[i] = 0;
-            for (int j = 0; j < numVariables; j++) G[i][j] = 0;
-        }
-
-        int current = 0; // edit constraints at current line
-        //Build coefficient matrix for link capacity
-        for (int i = 0; i < numVertex; i++)
-            for (int j = 0; j < numVertex; j++) {
-                for (int k = 0; k < numFlow; k++)
-                    G[current][k * numVertex * numVertex + i * numVertex + j] = 1.;
-
-                h[current++] = topology.getBandwidth(i, j);
-            }
-
-        //Build coefficient matrix for unsaturated requests
-        for (int i = 0; i < numUnsat; i++) {
-            for (int j = 0; j < numFlow; j++)
-                if (flow[j].getmSeq() == unsatDataTransferRequests[i].getmSeq())
-                    G[current][numVertex * numVertex * numFlow + flow[j].getkSeq()] = -1.;
-
-            G[current++][posZ] = unsatDataTransferRequests[i].getVolume();
-        }
-
-        //Build coefficient matrix for (4h)
-        for (int i = 0; i < numSat; i++) {
-            for (int j = 0; j < numFlow; j++)
-                if (flow[j].getmSeq() == satDataTransferRequests[i].getmSeq())
-                    G[current][numVertex * numVertex * numFlow + flow[j].getkSeq()] = 1.;
-
-            h[current++] = satDataTransferRequests[i].getVolume();
-        }
-
-        for (int i = 0; i < numUnsat; i++) {
-            for (int j = 0; j < numFlow; j++)
-                if (flow[j].getmSeq() == unsatDataTransferRequests[i].getmSeq())
-                    G[current][numVertex * numVertex * numFlow + flow[j].getkSeq()] = 1.;
-
-            h[current++] =  unsatDataTransferRequests[i].getVolume();
-        }
-
-        //Build coefficient matrix for flow path constraint
-        for (int k = 0; k < numFlow; k++) {
-            for (int i = 0; i < numVertex; i++)
-                for (int j = 0; j < numVertex; j++) {
-                    G[current + k * numVertex * numVertex + i * numVertex + j][k * numVertex * numVertex + i * numVertex +j] = 1.;
-
-                    G[current + numFlow * numVertex * numVertex + k * numVertex * numVertex + i * numVertex + j][k * numVertex * numVertex + i * numVertex +j] = -1.;
-                }
-
-            List<Integer> list = flow[k].getPath();
-
-            for (int p = 0; p < list.size() - 1; p++) {
-                int i = list.get(p), j = list.get(p + 1);
-                h[current + k * numVertex * numVertex + i * numVertex + j] = flow[k].getMaxBandwidth();
-
-                h[current + numFlow * numVertex * numVertex + k * numVertex * numVertex + i * numVertex + j] = -flow[k].getMinBandwidth();
-            }
-        }
-
-        assert(current + 2 * numFlow * numVertex * numVertex == numExp);
-
-        //equalities constraints
-        numExp = numVertex * numFlow + numSat;
-        double[][] A = new double[numExp][numVariables];
-        double[] b = new double[numExp];
-        for (int i = 0; i < numExp; i++) {
-            b[i] = 0;
-            for (int j = 0; j < numVariables; j++) A[i][j] = 0;
-        }
-
-        //Build coefficient matrix for flow conservation
-        current = 0;
-        for (int k = 0; k < numFlow; k++)
-            for (int i = 0; i < numVertex; i++) {
-                for (int j = 0; j < numVertex; j++) {
-                    if (topology.getBandwidth(i, j) > 0)
-                        A[current][k * numVertex * numVertex + i * numVertex + j] = 1.;
-
-                    if (topology.getBandwidth(j, i) > 0)
-                        A[current][k * numVertex * numVertex + j * numVertex + i] = -1.;
-                }
-
-                if (i == flow[k].getSource()) {
-                    A[current++][numVertex * numVertex * numFlow + k] = -1.;
-                } else {
-                    A[current++][numVertex * numVertex + numFlow + k] = (i == flow[k].getDestination()) ? 1. : 0;
-                }
-
-            }
-
-        //Build coefficient matrix for saturated requests
-        for (int i = 0; i < numSat; i++) {
-            for (int j = 0; j < numFlow; j++) {
-                if (flow[j].getmSeq() == satDataTransferRequests[i].getmSeq())
-                    A[current][numVertex * numVertex * numFlow + flow[j].getkSeq()] = 1.;
-            }
-
-            b[current++] = satDataTransferRequests[i].getVolume() * zSat[i];
-        }
-
-        assert(current == numExp);
-
-        //Bounds on variables
-        numExp = numVariables;
-        double[] lb = new double[numExp];
-        //double[] ub;
-        for (int i = 0; i < numExp; i++) lb[i] = 0;
-
-        //optimization problem
-        LPOptimizationRequest or = new LPOptimizationRequest();
-        or.setC(c);
-        or.setG(G);
-        or.setH(h);
-        or.setA(A);
-        or.setB(b);
-        or.setLb(lb);
-        //or.setUb(ub);
-        or.setDumpProblem(true);
-
-        //optimization
-        LPPrimalDualMethod opt = new LPPrimalDualMethod();
-
-        opt.setLPOptimizationRequest(or);
-        try {
-            int returnCode = opt.optimize();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-
-        return opt.getOptimizationResponse().getSolution();*/
     }
+
+
+    private boolean linkOnPath(List<Integer> Path, int src, int dst) {
+        for (int i = 0; i < Path.size()-1; i++) {
+            if ((Path.get(i) == src) && (Path.get(i+1) == dst))
+                return true;
+        }
+        return false;
+    }
+
+
+
 }

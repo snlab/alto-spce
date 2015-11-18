@@ -444,6 +444,7 @@ public class OMFRA {
         int num_unsat_flow = 0;
         int num_sat_flow = 0;
         int num_flow;
+        int tmp_flow_count;
 
         for (int i = 0; i < unsat_num_request; i++)
             num_unsat_flow += unsatDataTransferRequests.get(i).getActiveFlow().size();
@@ -479,16 +480,23 @@ public class OMFRA {
             GLPK.glp_set_col_kind(MMF,
                     num_vertex*num_vertex*num_flow+k+1,
                     GLPKConstants.GLP_CV);
-            int tmpCount = 0;
-            for (int m = 0; m < num_flow; m++) {
-                if (m < num_unsat_flow)
-                    tmpCount += unsatDataTransferRequests.get(m).getActiveFlow().size();
+            tmp_flow_count = 0;
+            for (int m = 0; m < unsat_num_request + sat_num_request; m++) {
+                if (m < unsat_num_request)
+                    tmp_flow_count += unsatDataTransferRequests.get(m).getActiveFlow().size();
                 else
-                    tmpCount += satDataTransferRequests.get(m).getActiveFlow().size();
-                if (tmpCount > k) {
-                    GLPK.glp_set_col_bnds(MMF,
-                            num_vertex*num_vertex*num_flow+k+1,
-                            GLPKConstants.GLP_DB, 0, satDataTransferRequests.get(m).getVolume());
+                    tmp_flow_count += satDataTransferRequests.get(m-unsat_num_request).getActiveFlow().size();
+                if (tmp_flow_count > k) {
+                    if (m < unsat_num_request)
+                        GLPK.glp_set_col_bnds(MMF,
+                                num_vertex*num_vertex*num_flow+k+1,
+                                GLPKConstants.GLP_DB, 0,
+                                (double)satDataTransferRequests.get(m).getVolume());
+                    else
+                        GLPK.glp_set_col_bnds(MMF,
+                                num_vertex*num_vertex*num_flow+k+1,
+                                GLPKConstants.GLP_DB, 0,
+                                (double)satDataTransferRequests.get(m-unsat_num_request).getVolume());
                     break;
                 }
             }
@@ -506,9 +514,8 @@ public class OMFRA {
 
 
         //Build coefficient matrix for link capacity
-
-        ind = GLPK.new_intArray(1);
-        val = GLPK.new_doubleArray(1);
+        ind = GLPK.new_intArray(num_flow);
+        val = GLPK.new_doubleArray(num_flow);
 
         for (int i = 0; i < num_vertex; i++)
             for (int j = 0; j < num_vertex; j++) {
@@ -516,20 +523,157 @@ public class OMFRA {
                 GLPK.glp_set_row_name(MMF, i*num_vertex+j+1,
                         "capacity s" + Integer.toString(i) + "d" + Integer.toString(j));
                 for (int k = 0; k < num_flow; k++) {
-                    GLPK.intArray_setitem(ind, 1,
+                    GLPK.intArray_setitem(ind, k+1,
                                         k*num_vertex*num_vertex+i*num_vertex+j+1);
-                    GLPK.doubleArray_setitem(val, 1, 1);
-                    GLPK.glp_set_mat_row(MMF, i*num_vertex+j+1, 1, ind, val);
-
+                    GLPK.doubleArray_setitem(val, 1, 1.);
                 }
+                GLPK.glp_set_mat_row(MMF, i*num_vertex+j+1, 1, ind, val);
                 GLPK.glp_set_row_bnds(MMF, i*num_vertex+j+1,
-                        GLPKConstants.GLP_DB, 0, topology.getBandwidth(i, j));
+                        GLPKConstants.GLP_DB, 0, (double)topology.getBandwidth(i, j));
+            }
+
+        GLPK.delete_intArray(ind);
+        GLPK.delete_doubleArray(val);
+
+        //So far we already have num_vertex*num_vertex rows
+        //Build coefficient matrix for unsaturated requests
+        tmp_flow_count = 0;
+        for (int i = 0; i < unsat_num_request; i++) {
+            int num_flow_per_request = unsatDataTransferRequests.get(i).getActiveFlow().size();
+            GLPK.glp_add_rows(MMF, 1);
+            GLPK.glp_set_row_name(MMF, num_vertex*num_vertex+i+1,
+                    "unsat m" + Integer.toString(i));
+            ind = GLPK.new_intArray(num_flow_per_request+1);
+            val = GLPK.new_doubleArray(num_flow_per_request+1);
+            for (int k = 0; k < num_flow_per_request; k++) {
+                GLPK.intArray_setitem(ind, k+1,
+                        num_vertex*num_vertex*num_flow+tmp_flow_count+k+1);
+                GLPK.doubleArray_setitem(val, k+1, 1.);
+            }
+            GLPK.intArray_setitem(ind, num_flow_per_request+1,
+                                num_vertex*num_vertex+num_flow+1);
+            GLPK.doubleArray_setitem(val, num_flow_per_request+1,
+                                (double)unsatDataTransferRequests.get(i).getVolume() * (double)-1);
+
+            GLPK.glp_set_mat_row(MMF, num_vertex*num_vertex+i+1,
+                    num_flow_per_request+1, ind, val);
+            GLPK.glp_set_row_bnds(MMF, num_vertex*num_vertex+i+1,
+                    GLPKConstants.GLP_LO, 0, Double.MAX_VALUE);
+            GLPK.delete_intArray(ind);
+            GLPK.delete_doubleArray(val);
+            tmp_flow_count += num_flow_per_request;
+        }
+
+
+        //So far we already have num_vertex*num_vertex+unsat_num_request rows
+        //Build coefficient matrix for flow conservation
+        for (int k = 0; k < num_flow; k++) {
+            //double flowVol=0.;
+            int flowSrc = 0;
+            int flowDst = 0;
+            int last_tmp_flow_count = 0;
+            tmp_flow_count = 0;
+            for (int m = 0; m < unsat_num_request + sat_num_request; m++) {
+                if (m < unsat_num_request) {
+                    last_tmp_flow_count = tmp_flow_count;
+                    tmp_flow_count += unsatDataTransferRequests.get(m).getActiveFlow().size();
+                }
+                else {
+                    last_tmp_flow_count = tmp_flow_count;
+                    tmp_flow_count += satDataTransferRequests.get(m - unsat_num_request).getActiveFlow().size();
+                }
+
+                if (tmp_flow_count > k) {
+                    if (m < unsat_num_request) {
+                        //flowVol = (double) unsatDataTransferRequests.get(m).getVolume();
+                        flowDst = unsatDataTransferRequests.get(m).getDestination();
+                        flowSrc = unsatDataTransferRequests.get(m).getActiveFlowbyIndex(k-last_tmp_flow_count).getSource();
+                    }
+                    else {
+                        //flowVol = (double) satDataTransferRequests.get(m-unsat_num_request).getVolume();
+                        flowDst = satDataTransferRequests.get(m-unsat_num_request).getDestination();
+                        flowSrc = satDataTransferRequests.get(m-unsat_num_request).getActiveFlowbyIndex(k-last_tmp_flow_count).getSource();
+                    }
+                    break;
+                }
+            }
+
+            for (int i = 0; i < num_vertex; i++) {
+                GLPK.glp_add_rows(MMF, 1);
+                GLPK.glp_set_row_name(MMF, num_vertex*num_vertex+unsat_num_request+k*num_vertex+i+1,
+                        "f" + Integer.toString(k) + "v" +Integer.toString(i));
+                ind = GLPK.new_intArray(2*num_vertex-1);
+                val = GLPK.new_doubleArray(2*num_vertex-1);
+                int tmpIdx = 0;
+                for (int j = 0; j < num_vertex; j++) {
+                    if (topology.getBandwidth(i, j) > 0) {
+                        GLPK.intArray_setitem(ind, tmpIdx+1,
+                                k*num_vertex*num_vertex+i*num_vertex+j+1);
+                        GLPK.doubleArray_setitem(val, tmpIdx+1, 1.);
+                        tmpIdx++;
+                    }
+                    if (topology.getBandwidth(j, i) > 0) {
+                        GLPK.intArray_setitem(ind, tmpIdx+1,
+                                k*num_vertex*num_vertex+i*num_vertex+j+1);
+                        GLPK.doubleArray_setitem(val, tmpIdx+1, -1.);
+                        tmpIdx++;
+                    }
+                }
+
+                if (i == flowSrc) {
+                    GLPK.intArray_setitem(ind, tmpIdx+1,
+                                num_vertex*num_vertex+k+1);
+                    GLPK.doubleArray_setitem(val, tmpIdx+1, -1);
+                    tmpIdx++;
+                } else if (i == flowDst) {
+                    GLPK.intArray_setitem(ind, tmpIdx+1,
+                            num_vertex*num_vertex+k+1);
+                    GLPK.doubleArray_setitem(val, tmpIdx+1, 1);
+                    tmpIdx++;
+                }
+
+                GLPK.glp_set_mat_row(MMF, num_vertex*num_vertex+unsat_num_request+k*num_vertex+i+1,
+                        tmpIdx, ind, val);
+                GLPK.glp_set_row_bnds(MMF, num_vertex*num_vertex+i+1,
+                        GLPKConstants.GLP_FX, 0, Double.MAX_VALUE);
+                GLPK.delete_intArray(ind);
+                GLPK.delete_doubleArray(val);
+            }
+        }
+
+        //So far we already have num_vertex*num_vertex+unsat_num_request+num_flow*num_vertex rows
+        //Build coefficient matrix for saturated requests
+        tmp_flow_count = 0;
+        for (int i = 0; i < sat_num_request; i++) {
+            int num_flow_per_request = satDataTransferRequests.get(i).getActiveFlow().size();
+            GLPK.glp_add_rows(MMF, 1);
+            GLPK.glp_set_row_name(MMF,
+                    num_vertex*num_vertex+unsat_num_request+num_flow*num_vertex+i+1,
+                    "sat m" + Integer.toString(i));
+            ind = GLPK.new_intArray(num_flow_per_request);
+            val = GLPK.new_doubleArray(num_flow_per_request);
+            for (int k = 0; k < num_flow_per_request; k++) {
+                GLPK.intArray_setitem(ind, k+1,
+                        num_vertex*num_vertex*num_flow+num_unsat_flow+tmp_flow_count+k+1);
+                GLPK.doubleArray_setitem(val, k+1, 1.);
             }
 
 
+            GLPK.glp_set_mat_row(MMF,
+                    num_vertex*num_vertex+unsat_num_request+num_flow*num_vertex+i+1,
+                    num_flow_per_request, ind, val);
+            GLPK.glp_set_row_bnds(MMF,
+                    num_vertex*num_vertex+unsat_num_request+num_flow*num_vertex+i+1,
+                    GLPKConstants.GLP_FX,
+                    (double)satDataTransferRequests.get(i).getVolume() * zSat.get(i),
+                    Double.MAX_VALUE);
+            GLPK.delete_intArray(ind);
+            GLPK.delete_doubleArray(val);
+            tmp_flow_count += num_flow_per_request;
+        }
 
 
-        return Sol;
+            return Sol;
         /*try
         {
             System.loadLibrary( "glpk_java" );

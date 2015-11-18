@@ -61,6 +61,22 @@ public class DataTransferRequest {
         return activeFlow;
     }
 
+    public DataTransferFlow getActiveFlowbyIndex(int index) {
+        int activeIdx = 0;
+        for (int i = 0; i < this.flow.size(); i++) {
+            if (this.flow.get(i).getFlowStatus()) {
+                activeIdx++;
+                if (activeIdx == index)
+                    return this.flow.get(i);
+            }
+        }
+        return this.flow.get(this.flow.size());
+    }
+
+
+
+
+
     public void setmSeq(int mSeq) { this.mSeq = mSeq; }
     public void setPriorituy(int priority) { this.priority = priority; }
     public void setArrivalTime(long arrivalTime) { this.arrivalTime = arrivalTime; }

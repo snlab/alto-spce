@@ -19,6 +19,8 @@ running `./deploy.sh <distribution_directory>`, where `<distribution_directory>`
 
 For example, if you start your ODL controller from `/root/distribution-karaf-0.4.0-SNAPSHOT/bin/karaf`, you can use the command `./deploy.sh /root/distribution-karaf-0.4.0-SNAP`.
 
+> **NOTE:** If you have checked out the latest commit in master branch, you will need a `karaf-0.4.1-SNAPSHOT` distribution rather than `karaf-0.4.0-SNAPSHOT`.
+
 And then, you can check whether the features of alto-spce are loaded in your karaf shell as follows:
 
 ```
@@ -81,7 +83,7 @@ After this command, l2switch will discover host1 and host5.
 
 ### Setup/Remove a path with python-odl library
 
-We have forked [python-odl](https://github.com/SPRACE/python-odl) project and add some codes to support alto-spce. You could get the code [here](https://github.com/snlab/python-odl).
+We have forked [python-odl](https://github.com/SPRACE/python-odl) project to support alto-spce. You could get the code [here](https://github.com/snlab/python-odl).
 
 ```
 ＃ Import essential modules.
@@ -105,3 +107,17 @@ We have forked [python-odl](https://github.com/SPRACE/python-odl) project and ad
 ```
 
 Enjoy your alto-spce!
+
+## Try the demo system out
+
+We have deploy a demo system in http://alto.yale.edu:8181/index.html and you can try it out. There is a brief usage:
+
+You can setup or remove a path by using `python-odl` library. Just follow the section ["Setup/Remove a path with python-odl library"](#setupremove-a-path-with-python-odl-library) and replace `127.0.0.1` by `alto.yale.edu`.
+
+Also you can send a HTTP request like the following template to query ALTO Endpoint Cost Service (ECS):
+
+```
+curl -X POST -H "Content-type: application/alto-endpointcostfilter+json" \
+    -d '{"cost-type":{"cost-mode":"numerical","cost-metric":"hopcount"},"endpoints":{"srcs":[<SOURCE_IP_LIST>],"dsts":[<DESTINATION_IP_LIST>]}}' \
+    http://alto.yale.edu:8181/alto/endpointcost/default
+```

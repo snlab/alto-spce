@@ -12,21 +12,14 @@ import com.google.common.base.Optional;
 import org.opendaylight.alto.spce.impl.algorithm.PathComputation;
 import org.opendaylight.alto.spce.impl.util.FlowManager;
 import org.opendaylight.alto.spce.impl.util.InventoryReader;
+import org.opendaylight.alto.spce.impl.util.MeterManager;
 import org.opendaylight.controller.md.sal.binding.api.DataBroker;
 import org.opendaylight.controller.md.sal.binding.api.ReadOnlyTransaction;
 import org.opendaylight.controller.md.sal.common.api.data.LogicalDatastoreType;
 import org.opendaylight.yang.gen.v1.urn.ietf.params.xml.ns.yang.ietf.inet.types.rev100924.Ipv4Address;
 import org.opendaylight.yang.gen.v1.urn.ietf.params.xml.ns.yang.ietf.inet.types.rev100924.Ipv4Prefix;
 import org.opendaylight.yang.gen.v1.urn.ietf.params.xml.ns.yang.ietf.yang.types.rev100924.MacAddress;
-import org.opendaylight.yang.gen.v1.urn.opendaylight.alto.spce.rev151106.AltoSpceMetric;
-import org.opendaylight.yang.gen.v1.urn.opendaylight.alto.spce.rev151106.AltoSpceRemoveInput;
-import org.opendaylight.yang.gen.v1.urn.opendaylight.alto.spce.rev151106.AltoSpceRemoveOutput;
-import org.opendaylight.yang.gen.v1.urn.opendaylight.alto.spce.rev151106.AltoSpceRemoveOutputBuilder;
-import org.opendaylight.yang.gen.v1.urn.opendaylight.alto.spce.rev151106.AltoSpceService;
-import org.opendaylight.yang.gen.v1.urn.opendaylight.alto.spce.rev151106.AltoSpceSetupInput;
-import org.opendaylight.yang.gen.v1.urn.opendaylight.alto.spce.rev151106.AltoSpceSetupOutput;
-import org.opendaylight.yang.gen.v1.urn.opendaylight.alto.spce.rev151106.AltoSpceSetupOutputBuilder;
-import org.opendaylight.yang.gen.v1.urn.opendaylight.alto.spce.rev151106.ErrorCodeType;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.alto.spce.rev151106.*;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.alto.spce.rev151106.alto.spce.setup.input.ConstraintMetric;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.alto.spce.rev151106.alto.spce.setup.input.ConstraintMetricBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.alto.spce.rev151106.alto.spce.setup.input.Endpoint;
@@ -44,6 +37,7 @@ import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.node.No
 import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.nodes.Node;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.nodes.NodeKey;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.l2.types.rev130827.EtherType;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.meter.service.rev130918.SalMeterService;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.model.match.types.rev131026.ethernet.match.fields.EthernetDestinationBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.model.match.types.rev131026.ethernet.match.fields.EthernetSourceBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.model.match.types.rev131026.ethernet.match.fields.EthernetTypeBuilder;
@@ -77,18 +71,66 @@ public class AltoSpceImpl implements AltoSpceService {
     private NetworkTrackerService networkTrackerService;
     private DataBroker dataBroker;
     private FlowManager flowManager;
+    private MeterManager meterManager;
     private InventoryReader inventoryReader;
     private PathComputation pathComputation;
 
     public AltoSpceImpl(SalFlowService salFlowService,
+                        SalMeterService salMeterService,
                         NetworkTrackerService networkTrackerService,
                         DataBroker dataBroker) {
         this.salFlowService = salFlowService;
         this.networkTrackerService = networkTrackerService;
         this.dataBroker = dataBroker;
         this.flowManager = new FlowManager(salFlowService);
+        this.meterManager = new MeterManager(salMeterService);
         this.inventoryReader = new InventoryReader(dataBroker);
         this.pathComputation = new PathComputation(networkTrackerService);
+    }
+
+    @Override
+    public Future<RpcResult<RateLimitingSetupOutput>> rateLimitingSetup(RateLimitingSetupInput input) {
+        String path = input.getPath();
+        int limitedRate = input.getLimitedRate();
+        int burstSize = input.getBurstSize();
+        LOG.info(String.format(
+                "In rateLimitingSetup, the path is %s, the limited rate is %d, and the burst size is %d"
+                , path, limitedRate, burstSize));
+        ErrorCodeType errorCode = limitPathRate(path, limitedRate, burstSize);
+        RateLimitingSetupOutput output = new RateLimitingSetupOutputBuilder()
+                .setErrorCode(errorCode).build();
+        return RpcResultBuilder.success(output).buildFuture();
+    }
+
+    private ErrorCodeType limitPathRate(String path, int limitedRate, int burstSize) {
+        LOG.info("In limit path rate");
+        ErrorCodeType errorCode = removePath(path);
+        if (errorCode== ErrorCodeType.ERROR) {
+            return ErrorCodeType.ERROR;
+        } else {
+            List<NodeConnectorRef> nodeConnectorRefs = new LinkedList<>();
+            List<TpId> tpIds = parseTpIds(path);
+            for (TpId tpid : tpIds) {
+                String nc_value = tpid.getValue();
+                InstanceIdentifier<NodeConnector> ncid = InstanceIdentifier.builder(Nodes.class)
+                        .child(
+                                Node.class,
+                                new NodeKey(new NodeId(nc_value.substring(0, nc_value.lastIndexOf(':')))))
+                        .child(
+                                NodeConnector.class,
+                                new NodeConnectorKey(new NodeConnectorId(nc_value)))
+                        .build();
+                nodeConnectorRefs.add(new NodeConnectorRef(ncid));
+            }
+            LOG.info("Setup a path with rate limiting");
+            meterManager.addDropMeterByPath(limitedRate, burstSize, nodeConnectorRefs);
+        }
+        return errorCode;
+    }
+
+    @Override
+    public Future<RpcResult<RateLimitingRemoveOutput>> rateLimitingRemove(RateLimitingRemoveInput input) {
+        return null;
     }
 
     public Future<RpcResult<AltoSpceRemoveOutput>> altoSpceRemove(AltoSpceRemoveInput input) {
@@ -267,6 +309,7 @@ public class AltoSpceImpl implements AltoSpceService {
         AltoSpceGetMacByIpInput input = new AltoSpceGetMacByIpInputBuilder()
                 .setIpAddress(src.getValue())
                 .build();
+        LOG.info("In ipToMac, IP is " + src.getValue());
         Future<RpcResult<AltoSpceGetMacByIpOutput>> result = this.networkTrackerService.altoSpceGetMacByIp(input);
         try {
             AltoSpceGetMacByIpOutput output = result.get().getResult();

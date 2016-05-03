@@ -1,0 +1,58 @@
+module rate-limiting {
+    yang-version 1;
+    namespace "urn:opendaylight:alto:spce";
+    prefix "ba";
+
+    import ietf-inet-types {prefix inet;}
+
+    organization "SNLab.";
+    contact "Shawn Lin <x.shawn.lin@gmail.com>";
+
+    revision "2016-04-30" {
+        description "This model is design for the end to end rate limiting of alto-spec.";
+    }
+
+    typedef error-code-type {
+        type enumeration {
+            enum OK;
+            enum ERROR;
+        }
+    }
+
+    rpc rate-limiting-setup {
+        description "Given the path (source IP and destination IP are all included), and the value of the rate limiting,
+            this service will set the meter with the rate limiting value, and update every related
+            flow entries in switches along this path.";
+
+        input {
+            leaf path {
+                type string;
+            }
+
+            leaf limited-rate {
+                description "The metric is kbps.";
+                type int32;
+            }
+        }
+
+        output {
+           leaf error-code {
+               type error-code-type;
+           }
+        }
+    }
+
+    rpc rate-limiting-remove {
+        input {
+            leaf path {
+                type string;
+            }
+        }
+
+        output {
+            leaf error-code {
+                type error-code-type;
+            }
+        }
+    }
+}

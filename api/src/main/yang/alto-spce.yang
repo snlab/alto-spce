@@ -29,6 +29,21 @@ module alto-spce {
         }
     }
 
+    grouping endpoint-group {
+        container endpoint {
+            leaf src {
+                type inet:ipv4-address;
+                mandatory true;
+                description "Source IP address";
+            }
+            leaf dst {
+                type inet:ipv4-address;
+                mandatory true;
+                description "Destination IP address";
+            }
+        }
+    }
+
     rpc alto-spce-setup {
         description "Given the endpoints, this service computes a path
            satisfying the constraints; among those satisfying the constraints, 
@@ -37,7 +52,8 @@ module alto-spce {
            in FRM. This service does not handle the complexity of re-route.";
 
         input {
-            container endpoint {
+            uses endpoint-group;
+            /*container endpoint {
                 leaf src {
                     type inet:ipv4-address;
                     mandatory true;
@@ -48,7 +64,7 @@ module alto-spce {
                     mandatory true;
                     description "Destination IP address";
                 } 
-            }
+            }*/
             leaf-list objective-metrics {
                 type alto-spce-metric;
             }
@@ -97,9 +113,10 @@ module alto-spce {
             flow entries in switches along this path.";
 
         input {
-            leaf path {
+            uses endpoint-group;
+            /*leaf path {
                 type string;
-            }
+            }*/
 
             leaf limited-rate {
                 description "The metric is kbps.";

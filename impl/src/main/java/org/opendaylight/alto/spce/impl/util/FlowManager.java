@@ -34,8 +34,11 @@ import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.types.rev131026.flow.I
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.types.rev131026.flow.Match;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.types.rev131026.flow.MatchBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.types.rev131026.instruction.instruction.ApplyActionsCaseBuilder;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.types.rev131026.instruction.instruction.MeterCaseBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.types.rev131026.instruction.instruction.apply.actions._case.ApplyActions;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.types.rev131026.instruction.instruction.apply.actions._case.ApplyActionsBuilder;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.types.rev131026.instruction.instruction.meter._case.Meter;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.types.rev131026.instruction.instruction.meter._case.MeterBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.types.rev131026.instruction.list.Instruction;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.types.rev131026.instruction.list.InstructionBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.NodeConnectorRef;
@@ -44,6 +47,7 @@ import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.node.No
 import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.node.NodeConnectorKey;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.nodes.Node;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.l2.types.rev130827.EtherType;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.meter.types.rev130918.MeterId;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.model.match.types.rev131026.ethernet.match.fields.EthernetDestinationBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.model.match.types.rev131026.ethernet.match.fields.EthernetSourceBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.model.match.types.rev131026.ethernet.match.fields.EthernetTypeBuilder;
@@ -57,6 +61,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.math.BigInteger;
+import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
@@ -78,8 +84,11 @@ public class FlowManager {
     private final Integer DEFAULT_IDLE_TIMEOUT = 1800;
     private final Long OFP_NO_BUFFER = Long.valueOf(4294967295L);
 
-    public FlowManager(SalFlowService salFLowService) {
+    private MeterManager meterManager;
+
+    public FlowManager(SalFlowService salFLowService, MeterManager meterManager) {
         this.salFlowService = salFLowService;
+        this.meterManager = meterManager;
         setFlowTableId(DEFAULT_TABLE_ID);
         setFlowPriority(DEFAULT_PRIORITY);
         setFlowIdleTimeout(DEFAULT_IDLE_TIMEOUT);
@@ -141,6 +150,49 @@ public class FlowManager {
         }
     }
 
+    public void addMacToMacFlowWithMeter(MacAddress sourceMac, MacAddress destMac, long dropRate, long dropBurstSize, NodeConnectorRef destNodeConnectorRef) {
+
+        if(sourceMac != null && destMac.equals(sourceMac)) {
+            LOG.info("In addMacToMacFlow: No flows added. Source and Destination mac are same.");
+            return;
+        }
+
+        TableKey flowTableKey = new TableKey((short) flowTableId);
+
+        InstanceIdentifier<Flow> flowPath = buildFlowPath(destNodeConnectorRef, flowTableKey);
+
+        long meterId = this.meterManager.getSwitchMeterMap().get(destNodeConnectorRef).get(dropRate, dropBurstSize);
+
+        Flow flowBody = createMacToMacFlowWithMeter(flowTableKey.getId(), flowPriority, sourceMac, destMac, meterId, destNodeConnectorRef);
+
+        writeFlowToConfigData(flowPath, flowBody);
+    }
+
+    public void addIpToIpFlowWithMeter(Ipv4Address sourceIp, Ipv4Address destIp, long dropRate, long dropBurstSize, NodeConnectorRef destNodeConnectorRef) {
+
+        if(sourceIp != null && destIp.equals(sourceIp)) {
+            LOG.info("In addMacToMacFlow: No flows added. Source and Destination mac are same.");
+            return;
+        }
+
+        TableKey flowTableKey = new TableKey((short) flowTableId);
+
+        InstanceIdentifier<Flow> flowPath = buildFlowPath(destNodeConnectorRef, flowTableKey);
+
+        long meterId = this.meterManager.getSwitchMeterMap().get(destNodeConnectorRef).get(dropRate, dropBurstSize);
+
+        Flow flowBody = createIpv4ToIpv4FlowWithMeter(flowTableKey.getId(), flowPriority, sourceIp, destIp, meterId, destNodeConnectorRef);
+
+        LOG.info("writeFlow: " + flowBody.toString());
+
+        try {
+            Future<RpcResult<AddFlowOutput>> result = writeFlowToConfigData(flowPath, flowBody);
+            AddFlowOutput output = result.get().getResult();
+        } catch (InterruptedException | ExecutionException e) {
+            LOG.info("WriteFlow Error: " + e.getMessage());
+        }
+    }
+
     public void addFlowByPath(MacAddress sourceMac, MacAddress destMac, List<NodeConnectorRef> path) {
 
         if(sourceMac != null && destMac.equals(sourceMac)) {
@@ -162,6 +214,39 @@ public class FlowManager {
 
         for (NodeConnectorRef nc : path) {
             addIpToIpFlow(sourceIp, destIp, nc);
+        }
+    }
+
+    public void addFlowByPathWithMeter(MacAddress sourceMac, MacAddress destMac, long dropRate, long dropBurstSize, List<NodeConnectorRef> path) {
+
+        LOG.info("In addFlowByPathWithMeter MAC");
+
+        if(sourceMac != null && destMac.equals(sourceMac)) {
+            LOG.info("In addMacToMacFlow: No flows added. Source and Destination mac are same.");
+            return;
+        }
+
+        LOG.info("In addFlowByPathWithMeter MAC, source MAC and dst MAC is not null");
+
+        for (NodeConnectorRef nc : path) {
+            LOG.info("In MAC loop");
+            addMacToMacFlowWithMeter(sourceMac, destMac, dropRate, dropBurstSize, nc);
+        }
+    }
+
+    public void addFlowByPathWithMeter(Ipv4Address sourceIp, Ipv4Address destIp, long dropRate, long dropBurstSize, List<NodeConnectorRef> path) {
+
+        LOG.info("In addFlowByPathWithMeter IP");
+
+        if(sourceIp != null && destIp.equals(sourceIp)) {
+            LOG.info("In addMacToMacFlow: No flows added. Source and Destination mac are same.");
+            return;
+        }
+
+        LOG.info("In addFlowByPathWithMeter IP, source IP and dst IP is not null");
+        for (NodeConnectorRef nc : path) {
+            LOG.info("In IP loop");
+            addIpToIpFlowWithMeter(sourceIp, destIp, dropRate, dropBurstSize, nc);
         }
     }
 
@@ -234,6 +319,82 @@ public class FlowManager {
         return macToMacFlow.build();
     }
 
+    private Flow createMacToMacFlowWithMeter(Short tableId, int priority,
+                                    MacAddress sourceMac, MacAddress destMac, long meterId ,NodeConnectorRef destPort) {
+
+        FlowBuilder macToMacFlow = new FlowBuilder() //
+                .setTableId(tableId) //
+                .setFlowName("mac2mac");
+
+        macToMacFlow.setId(new FlowId(Long.toString(macToMacFlow.hashCode())));
+
+        EthernetMatchBuilder ethernetMatchBuilder = new EthernetMatchBuilder() //
+                .setEthernetDestination(new EthernetDestinationBuilder() //
+                        .setAddress(destMac) //
+                        .build());
+        if(sourceMac != null) {
+            ethernetMatchBuilder.setEthernetSource(new EthernetSourceBuilder()
+                    .setAddress(sourceMac)
+                    .build());
+        }
+        EthernetMatch ethernetMatch = ethernetMatchBuilder.build();
+        Match match = new MatchBuilder()
+                .setEthernetMatch(ethernetMatch)
+                .build();
+
+
+        Uri destPortUri = destPort.getValue().firstKeyOf(NodeConnector.class, NodeConnectorKey.class).getId();
+
+        Action outputToControllerAction = new ActionBuilder() //
+                .setOrder(0)
+                .setAction(new OutputActionCaseBuilder() //
+                        .setOutputAction(new OutputActionBuilder() //
+                                .setMaxLength(0xffff) //
+                                .setOutputNodeConnector(destPortUri) //
+                                .build()) //
+                        .build()) //
+                .build();
+
+        ApplyActions applyActions = new ApplyActionsBuilder().setAction(ImmutableList.of(outputToControllerAction))
+                .build();
+
+        Instruction applyActionsInstruction = new InstructionBuilder() //
+                .setOrder(0)
+                .setInstruction(new ApplyActionsCaseBuilder()//
+                        .setApplyActions(applyActions) //
+                        .build()) //
+                .build();
+
+        MeterBuilder meterBuilder = new MeterBuilder()
+                .setMeterId(new MeterId(meterId));
+
+        Instruction applyMeterInstruction = new InstructionBuilder()
+                .setOrder(1)
+                .setInstruction(new MeterCaseBuilder()
+                        .setMeter(meterBuilder.build())
+                        .build())
+                .build();
+
+        List<Instruction> instructionList = new LinkedList<>();
+
+        instructionList.add(applyActionsInstruction);
+        instructionList.add(applyMeterInstruction);
+
+        macToMacFlow
+                .setMatch(match) //
+                .setInstructions(new InstructionsBuilder() //
+                        .setInstruction(instructionList) //
+                        .build()) //
+                .setPriority(priority) //
+                .setBufferId(OFP_NO_BUFFER) //
+                .setHardTimeout(flowHardTimeout) //
+                .setIdleTimeout(flowIdleTimeout) //
+                .setCookie(new FlowCookie(BigInteger.valueOf(flowCookieInc.getAndIncrement())))
+                .setFlags(new FlowModFlags(false, false, false, false, false));
+
+        return macToMacFlow.build();
+    }
+
     private Flow createIpv4ToIpv4Flow(Short tableId, int priority,
                                       Ipv4Address sourceIp, Ipv4Address destIp, NodeConnectorRef destPort) {
 
@@ -295,6 +456,86 @@ public class FlowManager {
 
         return ipToIpFlow.build();
     }
+
+    private Flow createIpv4ToIpv4FlowWithMeter(Short tableId, int priority,
+                                      Ipv4Address sourceIp, Ipv4Address destIp, Long meterId, NodeConnectorRef destPort) {
+
+        FlowBuilder ipToIpFlow = new FlowBuilder() //
+                .setTableId(tableId) //
+                .setFlowName("ip2ip");
+
+        ipToIpFlow.setId(new FlowId(Long.toString(ipToIpFlow.hashCode())));
+
+        Ipv4MatchBuilder ipv4MatchBuilder = new Ipv4MatchBuilder() //
+                .setIpv4Destination(new Ipv4Prefix(destIp.getValue() + "/32"));
+        if(sourceIp != null) {
+            ipv4MatchBuilder.setIpv4Source(new Ipv4Prefix(sourceIp.getValue() + "/32"));
+        }
+        Layer3Match layer3Match = ipv4MatchBuilder.build();
+        Match match = new MatchBuilder()
+                .setLayer3Match(layer3Match)
+                .setEthernetMatch(new EthernetMatchBuilder()
+                        .setEthernetType(new EthernetTypeBuilder()
+                                .setType(new EtherType(0x0800L))
+                                .build())
+                        .build())
+                .build();
+
+
+        Uri destPortUri = destPort.getValue().firstKeyOf(NodeConnector.class, NodeConnectorKey.class).getId();
+
+        Action outputToControllerAction = new ActionBuilder() //
+                .setOrder(0)
+                .setAction(new OutputActionCaseBuilder() //
+                        .setOutputAction(new OutputActionBuilder() //
+                                .setMaxLength(0xffff) //
+                                .setOutputNodeConnector(destPortUri) //
+                                .build()) //
+                        .build()) //
+                .build();
+
+        ApplyActions applyActions = new ApplyActionsBuilder().setAction(ImmutableList.of(outputToControllerAction))
+                .build();
+
+
+
+        Instruction applyActionsInstruction = new InstructionBuilder() //
+                .setOrder(0)
+                .setInstruction(new ApplyActionsCaseBuilder()//
+                        .setApplyActions(applyActions) //
+                        .build()) //
+                .build();
+
+        MeterBuilder meterBuilder = new MeterBuilder()
+                .setMeterId(new MeterId(meterId));
+
+        Instruction applyMeterInstruction = new InstructionBuilder()
+                .setOrder(1)
+                .setInstruction(new MeterCaseBuilder()
+                        .setMeter(meterBuilder.build())
+                        .build())
+                .build();
+
+        List<Instruction> instructionList = new LinkedList<>();
+
+        instructionList.add(applyActionsInstruction);
+        instructionList.add(applyMeterInstruction);
+
+        ipToIpFlow
+                .setMatch(match) //
+                .setInstructions(new InstructionsBuilder() //
+                        .setInstruction(instructionList) //
+                        .build()) //
+                .setPriority(priority) //
+                .setBufferId(OFP_NO_BUFFER) //
+                .setHardTimeout(flowHardTimeout) //
+                .setIdleTimeout(flowIdleTimeout) //
+                .setCookie(new FlowCookie(BigInteger.valueOf(flowCookieInc.getAndIncrement())))
+                .setFlags(new FlowModFlags(false, false, false, false, false));
+
+        return ipToIpFlow.build();
+    }
+
 
     private Future<RpcResult<AddFlowOutput>> writeFlowToConfigData(InstanceIdentifier<Flow> flowPath,
                                                                    Flow flow) {

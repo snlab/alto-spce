@@ -22,7 +22,8 @@ import org.opendaylight.yang.gen.v1.urn.ietf.params.xml.ns.yang.ietf.yang.types.
 import org.opendaylight.yang.gen.v1.urn.opendaylight.alto.spce.rev151106.*;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.alto.spce.rev151106.alto.spce.setup.input.ConstraintMetric;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.alto.spce.rev151106.alto.spce.setup.input.ConstraintMetricBuilder;
-import org.opendaylight.yang.gen.v1.urn.opendaylight.alto.spce.rev151106.alto.spce.setup.input.Endpoint;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.alto.spce.rev151106.endpoint.group.Endpoint;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.alto.spce.rev151106.endpoint.group.EndpointBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.service.rev130819.RemoveFlowInputBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.service.rev130819.SalFlowService;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.types.rev131026.flow.Match;
@@ -59,6 +60,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.math.BigInteger;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
@@ -74,6 +76,7 @@ public class AltoSpceImpl implements AltoSpceService {
     private MeterManager meterManager;
     private InventoryReader inventoryReader;
     private PathComputation pathComputation;
+    private HashMap<Endpoint, List<TpId>> pathHashMap = new HashMap<>();
 
     public AltoSpceImpl(SalFlowService salFlowService,
                         SalMeterService salMeterService,
@@ -82,34 +85,41 @@ public class AltoSpceImpl implements AltoSpceService {
         this.salFlowService = salFlowService;
         this.networkTrackerService = networkTrackerService;
         this.dataBroker = dataBroker;
-        this.flowManager = new FlowManager(salFlowService);
         this.meterManager = new MeterManager(salMeterService);
+        this.flowManager = new FlowManager(salFlowService, this.meterManager);
         this.inventoryReader = new InventoryReader(dataBroker);
         this.pathComputation = new PathComputation(networkTrackerService);
     }
 
     @Override
     public Future<RpcResult<RateLimitingSetupOutput>> rateLimitingSetup(RateLimitingSetupInput input) {
-        String path = input.getPath();
+        Endpoint endpoint = input.getEndpoint();
+        String src = endpoint.getSrc().getValue();
+        String dst = endpoint.getDst().getValue();
         int limitedRate = input.getLimitedRate();
         int burstSize = input.getBurstSize();
         LOG.info(String.format(
-                "In rateLimitingSetup, the path is %s, the limited rate is %d, and the burst size is %d"
-                , path, limitedRate, burstSize));
-        ErrorCodeType errorCode = limitPathRate(path, limitedRate, burstSize);
+                "In rateLimitingSetup, src is %s, dst is %s, the limited rate is %d, and the burst size is %d"
+                , src, dst, limitedRate, burstSize));
+        ErrorCodeType errorCode = //setupPathWithMeter(endpoint, limitedRate, burstSize, pathHashMap.get(endpoint));
+                limitPathRate(endpoint, limitedRate, burstSize);
         RateLimitingSetupOutput output = new RateLimitingSetupOutputBuilder()
                 .setErrorCode(errorCode).build();
         return RpcResultBuilder.success(output).buildFuture();
     }
 
-    private ErrorCodeType limitPathRate(String path, int limitedRate, int burstSize) {
+    private ErrorCodeType limitPathRate(Endpoint endpoint, int limitedRate, int burstSize) {
         LOG.info("In limit path rate");
-        ErrorCodeType errorCode = removePath(path);
+        List<TpId> path = new LinkedList<>(pathHashMap.get(endpoint));
+        //LOG.info("Path without meter is" + path.toString());
+        ErrorCodeType errorCode = removePath(endpoint);
+        LOG.info("Path without meter is" + path.toString());
         if (errorCode== ErrorCodeType.ERROR) {
             return ErrorCodeType.ERROR;
         } else {
             List<NodeConnectorRef> nodeConnectorRefs = new LinkedList<>();
-            List<TpId> tpIds = parseTpIds(path);
+            List<TpId> tpIds = path;
+                    // parseTpIds(path);
             for (TpId tpid : tpIds) {
                 String nc_value = tpid.getValue();
                 InstanceIdentifier<NodeConnector> ncid = InstanceIdentifier.builder(Nodes.class)
@@ -124,6 +134,17 @@ public class AltoSpceImpl implements AltoSpceService {
             }
             LOG.info("Setup a path with rate limiting");
             meterManager.addDropMeterByPath(limitedRate, burstSize, nodeConnectorRefs);
+            String src = endpoint.getSrc().getValue();
+            String dst = endpoint.getDst().getValue();
+            LOG.info(String.format("In limitPathRate(), have added meter from %s to %s", src, dst));
+            //EndpointBuilder endpointBuilder = new EndpointBuilder()
+            //        .setSrc(new Ipv4Address(src))
+            //        .setDst(new Ipv4Address(dst));
+
+            //Endpoint endpoint = endpointBuilder.build();
+            ErrorCodeType setPathWithMeterCode = setupPathWithMeter(endpoint, limitedRate, burstSize, path);
+            if (setPathWithMeterCode==ErrorCodeType.ERROR)
+                return ErrorCodeType.ERROR;
         }
         return errorCode;
     }
@@ -198,6 +219,45 @@ public class AltoSpceImpl implements AltoSpceService {
         return compressedConstraintMetrics;
     }
 
+    private Match parseMacMatch(Endpoint endpoint) {
+        //String[] tpList = path.split("\\|");
+        MacAddress srcEth = ipToMac(new Ipv4Address(endpoint.getSrc().getValue()));
+        MacAddress dstEth = ipToMac(new Ipv4Address(endpoint.getDst().getValue()));
+        if (srcEth == null | dstEth == null) {
+            return null;
+        }
+        return new MatchBuilder()
+                .setEthernetMatch(new EthernetMatchBuilder()
+                        .setEthernetSource(new EthernetSourceBuilder()
+                                .setAddress(srcEth)
+                                .build())
+                        .setEthernetDestination(new EthernetDestinationBuilder()
+                                .setAddress(dstEth)
+                                .build())
+                        .build())
+                .build();
+    }
+
+    private Match parseIpMatch(Endpoint endpoint) {
+        //String[] tpList = path.split("\\|");
+        Ipv4Prefix srcIp = new Ipv4Prefix(endpoint.getSrc().getValue() + "/32");
+        Ipv4Prefix dstIp = new Ipv4Prefix(endpoint.getDst().getValue() + "/32");
+        if (srcIp == null | dstIp == null) {
+            return null;
+        }
+        return new MatchBuilder()
+                .setLayer3Match(new Ipv4MatchBuilder()
+                        .setIpv4Source(srcIp)
+                        .setIpv4Destination(dstIp)
+                        .build())
+                .setEthernetMatch(new EthernetMatchBuilder()
+                        .setEthernetType(new EthernetTypeBuilder()
+                                .setType(new EtherType(0x0800L))
+                                .build())
+                        .build())
+                .build();
+    }
+
     private Match parseMacMatch(String path) {
         String[] tpList = path.split("\\|");
         MacAddress srcEth = ipToMac(new Ipv4Address(tpList[0]));
@@ -246,7 +306,47 @@ public class AltoSpceImpl implements AltoSpceService {
         return tpIds;
     }
 
+    private ErrorCodeType removePath(Endpoint endpoint) {
+        List<TpId> tpIds = pathHashMap.get(endpoint);
+        Match macMatch = parseMacMatch(endpoint);
+        Match ipMatch = parseIpMatch(endpoint);
+        if (macMatch == null | ipMatch == null) {
+            return ErrorCodeType.ERROR;
+        }
+        try {
+            for (TpId tpId : tpIds) {
+                NodeRef nodeRef =
+                        new NodeRef(InstanceIdentifier.builder(Nodes.class)
+                                .child(Node.class, new NodeKey(
+                                        new NodeId(tpId.getValue().substring(0, tpId.getValue().lastIndexOf(":")))))
+                                .build());
+                this.salFlowService.removeFlow(new RemoveFlowInputBuilder()
+                        .setMatch(macMatch)
+                        .setNode(nodeRef)
+                        .setTransactionUri(tpId)
+                        .build()
+                );
+                this.salFlowService.removeFlow(new RemoveFlowInputBuilder()
+                        .setMatch(ipMatch)
+                        .setNode(nodeRef)
+                        .build()
+                );
+            }
+        } catch (Exception e) {
+            LOG.info("Exception occurs when remove a path: " + e.getMessage());
+            return ErrorCodeType.ERROR;
+        }
+        pathHashMap.remove(endpoint);
+        return ErrorCodeType.OK;
+    }
+
     private ErrorCodeType removePath(String path) {
+        String src = path.substring(0, path.indexOf('|'));
+        String dst = path.substring(path.lastIndexOf('|')+1);
+        LOG.info(String.format("In removePath() from %s to %s", src, dst));
+        EndpointBuilder endpointBuilder = new EndpointBuilder()
+                .setSrc(new Ipv4Address(src))
+                .setDst(new Ipv4Address(dst));
         List<TpId> tpIds = parseTpIds(path);
         Match macMatch = parseMacMatch(path);
         Match ipMatch = parseIpMatch(path);
@@ -276,6 +376,7 @@ public class AltoSpceImpl implements AltoSpceService {
             LOG.info("Exception occurs when remove a path: " + e.getMessage());
             return ErrorCodeType.ERROR;
         }
+        pathHashMap.remove(endpointBuilder.build());
         return ErrorCodeType.OK;
     }
 
@@ -321,6 +422,7 @@ public class AltoSpceImpl implements AltoSpceService {
     }
 
     private ErrorCodeType setupPath(Endpoint endpoint, List<TpId> path) {
+        LOG.info("In default setupPath, the path is " + path.toString());
         if (path == null) {
             LOG.info("Setup Error: path is null.");
             return ErrorCodeType.ERROR;
@@ -346,12 +448,58 @@ public class AltoSpceImpl implements AltoSpceService {
             }
             LOG.info("Setup a path: srcIp=" + srcIp.getValue() + ", dstIp=" + dstIp.getValue());
             LOG.info("Setup a path: srcMac=" + srcMac.getValue() + ", dstMac=" + dstMac.getValue());
+            LOG.info("Setup a path with rate limiting, and nodeConnectorRefs is" + nodeConnectorRefs.toString());
             this.flowManager.addFlowByPath(srcIp, dstIp, nodeConnectorRefs);
             this.flowManager.addFlowByPath(srcMac, dstMac, nodeConnectorRefs);
         } catch (Exception e) {
             LOG.info("Exception occurs when setup a path: " + e.getMessage());
             return ErrorCodeType.ERROR;
         }
+        pathHashMap.put(endpoint, path);
+        LOG.info("Update pathHashMap" + path.toString());
+        return ErrorCodeType.OK;
+    }
+
+    private ErrorCodeType setupPathWithMeter(Endpoint endpoint, long dropRate, long dropBurstSize, List<TpId> path) {
+        LOG.info("In setupPathWithMeter, the path is " + path.toString());
+        if (path == null) {
+            LOG.info("Setup Error: path is null.");
+            return ErrorCodeType.ERROR;
+        }
+
+        try {
+            Ipv4Address srcIp = endpoint.getSrc();
+            Ipv4Address dstIp = endpoint.getDst();
+            MacAddress srcMac = ipToMac(srcIp);
+            MacAddress dstMac = ipToMac(dstIp);
+            List<NodeConnectorRef> nodeConnectorRefs = new LinkedList<>();
+            for (TpId tpid : path) {
+                String nc_value = tpid.getValue();
+                InstanceIdentifier<NodeConnector> ncid = InstanceIdentifier.builder(Nodes.class)
+                        .child(
+                                Node.class,
+                                new NodeKey(new NodeId(nc_value.substring(0, nc_value.lastIndexOf(':')))))
+                        .child(
+                                NodeConnector.class,
+                                new NodeConnectorKey(new NodeConnectorId(nc_value)))
+                        .build();
+                nodeConnectorRefs.add(new NodeConnectorRef(ncid));
+            }
+
+            LOG.info("Setup a path with rate limiting" + dropRate + ": srcIp=" + srcIp.getValue() + ", dstIp=" + dstIp.getValue());
+            LOG.info("Setup a path with rate limiting" + dropRate + ": srcMac=" + srcMac.getValue() + ", dstMac=" + dstMac.getValue());
+            LOG.info("Setup a path with rate limiting, and nodeConnectorRefs is" + nodeConnectorRefs.toString());
+            this.flowManager.addFlowByPathWithMeter(srcIp, dstIp, dropRate, dropBurstSize, nodeConnectorRefs);
+            LOG.info("add IP By path with meter finished");
+            this.flowManager.addFlowByPathWithMeter(srcMac, dstMac, dropRate, dropBurstSize, nodeConnectorRefs);
+            LOG.info("add MAC By path with meter finished");
+        } catch (Exception e) {
+            LOG.info("Exception occurs when setup a path: " + e.getMessage());
+            throw e;
+            //return ErrorCodeType.ERROR;
+        }
+        pathHashMap.put(endpoint, path);
+        LOG.info("Update pathHashMap" + path.toString());
         return ErrorCodeType.OK;
     }
 

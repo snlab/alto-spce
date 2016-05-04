@@ -8,9 +8,15 @@
 
 package org.opendaylight.alto.spce.impl.util;
 
+import com.google.common.collect.HashBasedTable;
+import com.google.common.collect.Table;
 import org.opendaylight.yang.gen.v1.urn.ietf.params.xml.ns.yang.ietf.inet.types.rev100924.Uri;
+import org.opendaylight.yang.gen.v1.urn.ietf.params.xml.ns.yang.ietf.yang.types.rev100924.MacAddress;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.inventory.rev130819.meters.MeterBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.inventory.rev130819.meters.MeterKey;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.inventory.rev130819.tables.TableKey;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.inventory.rev130819.tables.table.Flow;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.service.rev130819.SalFlowService;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.NodeConnectorRef;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.NodeRef;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.nodes.Node;
@@ -45,9 +51,14 @@ public class MeterManager {
     private final String DEFAULT_METER_NAME = "alto-spce rate limiting";
     private final String DEFAULT_METER_CONTAINER = "alto-spce rate limiting container";
     private HashMap<NodeConnectorRef, AtomicLong> meterIdInSwitch = new HashMap<>();
+    private HashMap<NodeConnectorRef, Table<Long, Long, Long>> switchMeterMap = new HashMap<>();
 
     public MeterManager(SalMeterService salMeterService) {
         this.salMeterService = salMeterService;
+    }
+
+    public HashMap<NodeConnectorRef, Table<Long, Long, Long>> getSwitchMeterMap() {
+        return this.switchMeterMap;
     }
 
     //need to check the default meter ID is what in the Pica8 switch.
@@ -66,7 +77,19 @@ public class MeterManager {
     public void addDropMeter(long dropRate, long dropBurstSize, NodeConnectorRef nodeConnectorRef) {
         LOG.info("In MeterManager.addDropMeter");
         Meter meter = createDropMeter(dropRate, dropBurstSize, nodeConnectorRef);
-        writeMeterToConfigData(buildMeterPath(nodeConnectorRef),meter);
+        if (switchMeterMap.containsKey(nodeConnectorRef)) {
+            Table<Long, Long, Long> rateMeterIdMap = switchMeterMap.get(nodeConnectorRef);
+            if (!rateMeterIdMap.contains(dropRate, dropBurstSize)) {
+                writeMeterToConfigData(buildMeterPath(nodeConnectorRef),meter);
+                rateMeterIdMap.put(dropRate, dropBurstSize, meter.getMeterId().getValue());
+                switchMeterMap.put(nodeConnectorRef, rateMeterIdMap);
+            }
+        } else {
+            Table<Long, Long, Long> rateMeterIdMap = HashBasedTable.create();
+            writeMeterToConfigData(buildMeterPath(nodeConnectorRef),meter);
+            rateMeterIdMap.put(dropRate, dropBurstSize, meter.getMeterId().getValue());
+            switchMeterMap.put(nodeConnectorRef, rateMeterIdMap);
+        }
     }
 
     public void addDropMeterByPath(long dropRate, long dropBurstSize, List<NodeConnectorRef> path) {
@@ -75,7 +98,6 @@ public class MeterManager {
             LOG.info("In add MeterByPath, dropRate and dropBurstSize must be a positive long integer.");
             return;
         }
-
         for (NodeConnectorRef nc : path) {
             addDropMeter(dropRate, dropBurstSize, nc);
         }

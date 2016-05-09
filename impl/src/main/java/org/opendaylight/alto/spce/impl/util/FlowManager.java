@@ -149,7 +149,7 @@ public class FlowManager {
             LOG.info("WriteFlow Error: " + e.getMessage());
         }
     }
-
+/*
     public void addMacToMacFlowWithMeter(MacAddress sourceMac, MacAddress destMac, long dropRate, long dropBurstSize, NodeConnectorRef destNodeConnectorRef) {
 
         if(sourceMac != null && destMac.equals(sourceMac)) {
@@ -161,13 +161,14 @@ public class FlowManager {
 
         InstanceIdentifier<Flow> flowPath = buildFlowPath(destNodeConnectorRef, flowTableKey);
 
-        long meterId = this.meterManager.getSwitchMeterMap().get(destNodeConnectorRef).get(dropRate, dropBurstSize);
+        long meterId = this.meterManager.getPerFlowMeterId(destNodeConnectorRef,)
+                getSwitchMeterMap().get(destNodeConnectorRef).get(dropRate, dropBurstSize);
 
         Flow flowBody = createMacToMacFlowWithMeter(flowTableKey.getId(), flowPriority, sourceMac, destMac, meterId, destNodeConnectorRef);
 
         writeFlowToConfigData(flowPath, flowBody);
     }
-
+*/
     public void addIpToIpFlowWithMeter(Ipv4Address sourceIp, Ipv4Address destIp, long dropRate, long dropBurstSize, NodeConnectorRef destNodeConnectorRef) {
 
         if(sourceIp != null && destIp.equals(sourceIp)) {
@@ -179,7 +180,8 @@ public class FlowManager {
 
         InstanceIdentifier<Flow> flowPath = buildFlowPath(destNodeConnectorRef, flowTableKey);
 
-        long meterId = this.meterManager.getSwitchMeterMap().get(destNodeConnectorRef).get(dropRate, dropBurstSize);
+        long meterId = //this.meterManager.getSwitchMeterMap().get(destNodeConnectorRef).get(dropRate, dropBurstSize);
+                this.meterManager.getPerFlowMeterId(destNodeConnectorRef, sourceIp.getValue(), destIp.getValue(), dropRate, dropBurstSize);
 
         Flow flowBody = createIpv4ToIpv4FlowWithMeter(flowTableKey.getId(), flowPriority, sourceIp, destIp, meterId, destNodeConnectorRef);
 
@@ -216,7 +218,7 @@ public class FlowManager {
             addIpToIpFlow(sourceIp, destIp, nc);
         }
     }
-
+/*
     public void addFlowByPathWithMeter(MacAddress sourceMac, MacAddress destMac, long dropRate, long dropBurstSize, List<NodeConnectorRef> path) {
 
         LOG.info("In addFlowByPathWithMeter MAC");
@@ -233,7 +235,7 @@ public class FlowManager {
             addMacToMacFlowWithMeter(sourceMac, destMac, dropRate, dropBurstSize, nc);
         }
     }
-
+*/
     public void addFlowByPathWithMeter(Ipv4Address sourceIp, Ipv4Address destIp, long dropRate, long dropBurstSize, List<NodeConnectorRef> path) {
 
         LOG.info("In addFlowByPathWithMeter IP");

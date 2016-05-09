@@ -113,6 +113,8 @@ public class AltoSpceImpl implements AltoSpceService {
         List<TpId> path = new LinkedList<>(pathHashMap.get(endpoint));
         //LOG.info("Path without meter is" + path.toString());
         ErrorCodeType errorCode = removePath(endpoint);
+        //We add the new flows with meter so path must be added back
+        pathHashMap.put(endpoint, path);
         LOG.info("Path without meter is" + path.toString());
         if (errorCode== ErrorCodeType.ERROR) {
             return ErrorCodeType.ERROR;
@@ -133,7 +135,8 @@ public class AltoSpceImpl implements AltoSpceService {
                 nodeConnectorRefs.add(new NodeConnectorRef(ncid));
             }
             LOG.info("Setup a path with rate limiting");
-            meterManager.addDropMeterByPath(limitedRate, burstSize, nodeConnectorRefs);
+            meterManager.addDropMeterByPath(endpoint.getSrc().getValue(), endpoint.getDst().getValue(),
+                    limitedRate, burstSize, nodeConnectorRefs);
             String src = endpoint.getSrc().getValue();
             String dst = endpoint.getDst().getValue();
             LOG.info(String.format("In limitPathRate(), have added meter from %s to %s", src, dst));
@@ -450,7 +453,7 @@ public class AltoSpceImpl implements AltoSpceService {
             LOG.info("Setup a path: srcMac=" + srcMac.getValue() + ", dstMac=" + dstMac.getValue());
             LOG.info("Setup a path with rate limiting, and nodeConnectorRefs is" + nodeConnectorRefs.toString());
             this.flowManager.addFlowByPath(srcIp, dstIp, nodeConnectorRefs);
-            this.flowManager.addFlowByPath(srcMac, dstMac, nodeConnectorRefs);
+            //this.flowManager.addFlowByPath(srcMac, dstMac, nodeConnectorRefs);
         } catch (Exception e) {
             LOG.info("Exception occurs when setup a path: " + e.getMessage());
             return ErrorCodeType.ERROR;
@@ -491,7 +494,7 @@ public class AltoSpceImpl implements AltoSpceService {
             LOG.info("Setup a path with rate limiting, and nodeConnectorRefs is" + nodeConnectorRefs.toString());
             this.flowManager.addFlowByPathWithMeter(srcIp, dstIp, dropRate, dropBurstSize, nodeConnectorRefs);
             LOG.info("add IP By path with meter finished");
-            this.flowManager.addFlowByPathWithMeter(srcMac, dstMac, dropRate, dropBurstSize, nodeConnectorRefs);
+            //this.flowManager.addFlowByPathWithMeter(srcMac, dstMac, dropRate, dropBurstSize, nodeConnectorRefs);
             LOG.info("add MAC By path with meter finished");
         } catch (Exception e) {
             LOG.info("Exception occurs when setup a path: " + e.getMessage());

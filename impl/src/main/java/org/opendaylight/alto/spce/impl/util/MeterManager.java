@@ -7,16 +7,9 @@
  */
 
 package org.opendaylight.alto.spce.impl.util;
-
-import com.google.common.collect.HashBasedTable;
-import com.google.common.collect.Table;
 import org.opendaylight.yang.gen.v1.urn.ietf.params.xml.ns.yang.ietf.inet.types.rev100924.Uri;
-import org.opendaylight.yang.gen.v1.urn.ietf.params.xml.ns.yang.ietf.yang.types.rev100924.MacAddress;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.inventory.rev130819.meters.MeterBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.inventory.rev130819.meters.MeterKey;
-import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.inventory.rev130819.tables.TableKey;
-import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.inventory.rev130819.tables.table.Flow;
-import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.service.rev130819.SalFlowService;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.NodeConnectorRef;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.NodeRef;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.nodes.Node;
@@ -43,23 +36,31 @@ import java.util.concurrent.atomic.AtomicLong;
 public class MeterManager {
     private static final Logger LOG = LoggerFactory.getLogger(MeterManager.class);
     private SalMeterService salMeterService;
-    private final long DEAULT_METER_ID_PICA8 = 256;
+    private final long MIN_METER_ID_PICA8 = 1;
+    private final long MAX_METER_ID_PICA8 = 256;
     private final String DEFAULT_METER_NAME = "alto-spce rate limiting";
     private final String DEFAULT_METER_CONTAINER = "alto-spce rate limiting container";
-    private HashMap<NodeConnectorRef, AtomicLong> meterIdInSwitch = new HashMap<>();
-    private HashMap<NodeConnectorRef, Table<Long, Long, Long>> switchMeterMap = new HashMap<>();
+    //private HashMap<NodeConnectorRef, AtomicLong> meterIdInSwitch = new HashMap<>();
+
+    //List<Long> is used for allocating a new meter ID in one switch
+    private HashMap<NodeConnectorRef, List<Boolean>> switchToMeterIdListMap = new HashMap<>();
+
+    private HashMap<NodeConnectorRef, HashMap<EndpointPairAndRequirement, Long>> switchToPerFlowToMeterIdMap = new HashMap<>();
 
     public MeterManager(SalMeterService salMeterService) {
         this.salMeterService = salMeterService;
     }
 
-    public HashMap<NodeConnectorRef, Table<Long, Long, Long>> getSwitchMeterMap() {
-        return this.switchMeterMap;
+    public long getPerFlowMeterId(NodeConnectorRef nodeConnectorRef, String src, String dst, long dropRate, long dropBurstSize) {
+        return switchToPerFlowToMeterIdMap.get(nodeConnectorRef).get(new EndpointPairAndRequirement(src, dst, dropRate, dropBurstSize));
     }
+    /*public HashMap<NodeConnectorRef, Table<Long, Long, Long>> getSwitchMeterMap() {
+        return this.switchMeterMap;
+    }*/
 
     //need to check the default meter ID is what in the Pica8 switch.
     //suppose it begins with 1. So I init it with 0, and add 1 to it when it is first used.
-    private MeterId meterIdInc(NodeConnectorRef nodeConnectorRef) {
+    /*private MeterId meterIdInc(NodeConnectorRef nodeConnectorRef) {
         LOG.info("in meterIdInc, nodeConnectorRef is" + nodeConnectorRef.toString());
         if (meterIdInSwitch.containsKey(nodeConnectorRef)) {
             meterIdInSwitch.put(nodeConnectorRef,
@@ -68,45 +69,62 @@ public class MeterManager {
             meterIdInSwitch.put(nodeConnectorRef, new AtomicLong(1L));
         }
         return new MeterId(meterIdInSwitch.get(nodeConnectorRef).longValue());
-    }
+    }*/
 
-    public void addDropMeter(long dropRate, long dropBurstSize, NodeConnectorRef nodeConnectorRef) {
+    public void addDropMeter(String src, String dst, long dropRate, long dropBurstSize, NodeConnectorRef nodeConnectorRef) {
         LOG.info("In MeterManager.addDropMeter");
-        Meter meter = createDropMeter(dropRate, dropBurstSize, nodeConnectorRef);
-        if (switchMeterMap.containsKey(nodeConnectorRef)) {
-            Table<Long, Long, Long> rateMeterIdMap = switchMeterMap.get(nodeConnectorRef);
-            if (!rateMeterIdMap.contains(dropRate, dropBurstSize)) {
-                writeMeterToConfigData(buildMeterPath(nodeConnectorRef),meter);
-                rateMeterIdMap.put(dropRate, dropBurstSize, meter.getMeterId().getValue());
-                switchMeterMap.put(nodeConnectorRef, rateMeterIdMap);
+        List<Boolean> perSwitchMeterList;
+        HashMap<EndpointPairAndRequirement, Long> perSwitchPerFlowToMeterIdMap;
+        if (!switchToMeterIdListMap.containsKey(nodeConnectorRef)) {
+            perSwitchMeterList = new LinkedList<>();
+            for (int i=0 ; i<=MAX_METER_ID_PICA8; ++i) {
+                //false stands for meterId == i is free. We must use i from 1 not from 0.
+                perSwitchMeterList.add(false);
             }
-        } else {
-            Table<Long, Long, Long> rateMeterIdMap = HashBasedTable.create();
-            writeMeterToConfigData(buildMeterPath(nodeConnectorRef),meter);
-            rateMeterIdMap.put(dropRate, dropBurstSize, meter.getMeterId().getValue());
-            switchMeterMap.put(nodeConnectorRef, rateMeterIdMap);
+            switchToMeterIdListMap.put(nodeConnectorRef, perSwitchMeterList);
         }
+        if (!switchToPerFlowToMeterIdMap.containsKey(nodeConnectorRef)) {
+            perSwitchPerFlowToMeterIdMap = new HashMap<>();
+            switchToPerFlowToMeterIdMap.put(nodeConnectorRef, perSwitchPerFlowToMeterIdMap);
+        }
+
+        perSwitchMeterList = switchToMeterIdListMap.get(nodeConnectorRef);
+        perSwitchPerFlowToMeterIdMap = switchToPerFlowToMeterIdMap.get(nodeConnectorRef);
+
+        int firstFreeMeterId = 1;
+        while (perSwitchMeterList.get(firstFreeMeterId)) {
+            ++firstFreeMeterId;
+        }
+
+        Meter meter = createDropMeter(dropRate, dropBurstSize, firstFreeMeterId);
+        writeMeterToConfigData(buildMeterPath(firstFreeMeterId, nodeConnectorRef),meter);
+        perSwitchMeterList.set(firstFreeMeterId, true);
+        EndpointPairAndRequirement epr = new EndpointPairAndRequirement(src, dst, dropRate, dropBurstSize);
+        perSwitchPerFlowToMeterIdMap.put(epr, (long)firstFreeMeterId);
+
+        switchToMeterIdListMap.put(nodeConnectorRef, perSwitchMeterList);
+        switchToPerFlowToMeterIdMap.put(nodeConnectorRef, perSwitchPerFlowToMeterIdMap);
     }
 
-    public void addDropMeterByPath(long dropRate, long dropBurstSize, List<NodeConnectorRef> path) {
+    public void addDropMeterByPath(String src, String dst, long dropRate, long dropBurstSize, List<NodeConnectorRef> path) {
         LOG.info("In MeterManager.addDropMeterByPath");
         if (dropRate <= 0 || dropBurstSize <= 0) {
             LOG.info("In add MeterByPath, dropRate and dropBurstSize must be a positive long integer.");
             return;
         }
         for (NodeConnectorRef nc : path) {
-            addDropMeter(dropRate, dropBurstSize, nc);
+            addDropMeter(src, dst, dropRate, dropBurstSize, nc);
         }
     }
 
-    private InstanceIdentifier<org.opendaylight.yang.gen.v1.urn.opendaylight.flow.inventory.rev130819.meters.Meter> buildMeterPath(NodeConnectorRef nodeConnectorRef) {
-        MeterId meterId = new MeterId(meterIdInSwitch.get(nodeConnectorRef).longValue());
+    private InstanceIdentifier<org.opendaylight.yang.gen.v1.urn.opendaylight.flow.inventory.rev130819.meters.Meter> buildMeterPath(long meterIdLong, NodeConnectorRef nodeConnectorRef) {
+        MeterId meterId = new MeterId(meterIdLong);
         MeterKey meterKey = new MeterKey(meterId);
         return InstanceIdentifierUtils.generateMeterInstanceIdentifier(nodeConnectorRef, meterKey);
     }
 
-    private Meter createDropMeter(long dropRate, long dropBurstSize, NodeConnectorRef nodeConnectorRef) {
-        LOG.info("nodeConnectorRef is" + nodeConnectorRef.toString());
+    private Meter createDropMeter(long dropRate, long dropBurstSize, long meterId) {
+        //LOG.info("nodeConnectorRef is" + nodeConnectorRef.toString());
         DropBuilder dropBuilder = new DropBuilder();
         dropBuilder
                 .setDropBurstSize(dropBurstSize)
@@ -132,7 +150,7 @@ public class MeterManager {
         MeterBuilder meterBuilder = new MeterBuilder()
                 .setFlags(new MeterFlags(true, true, false, false))
                 .setMeterBandHeaders(mbhsBuilder.build())
-                .setMeterId(new MeterId(meterIdInc(nodeConnectorRef)))
+                .setMeterId(new MeterId(meterId))
                 .setMeterName(DEFAULT_METER_NAME)
                 .setContainerName(DEFAULT_METER_CONTAINER);
         return meterBuilder.build();

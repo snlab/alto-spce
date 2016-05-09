@@ -23,11 +23,7 @@ import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.nodes.N
 import org.opendaylight.yang.gen.v1.urn.opendaylight.meter.service.rev130918.AddMeterInputBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.meter.service.rev130918.AddMeterOutput;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.meter.service.rev130918.SalMeterService;
-import org.opendaylight.yang.gen.v1.urn.opendaylight.meter.types.rev130918.BandId;
-import org.opendaylight.yang.gen.v1.urn.opendaylight.meter.types.rev130918.Meter;
-import org.opendaylight.yang.gen.v1.urn.opendaylight.meter.types.rev130918.MeterBandType;
-import org.opendaylight.yang.gen.v1.urn.opendaylight.meter.types.rev130918.MeterId;
-import org.opendaylight.yang.gen.v1.urn.opendaylight.meter.types.rev130918.MeterRef;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.meter.types.rev130918.*;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.meter.types.rev130918.band.type.band.type.DropBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.meter.types.rev130918.meter.MeterBandHeadersBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.meter.types.rev130918.meter.meter.band.headers.MeterBandHeader;
@@ -69,7 +65,7 @@ public class MeterManager {
             meterIdInSwitch.put(nodeConnectorRef,
                     new AtomicLong(meterIdInSwitch.get(nodeConnectorRef).incrementAndGet()));
         } else {
-            meterIdInSwitch.put(nodeConnectorRef, new AtomicLong(0L));
+            meterIdInSwitch.put(nodeConnectorRef, new AtomicLong(1L));
         }
         return new MeterId(meterIdInSwitch.get(nodeConnectorRef).longValue());
     }
@@ -134,6 +130,7 @@ public class MeterManager {
 
         LOG.info("In createDropMeter, MeterBandHeader is " + mbhBuilder.build().toString());
         MeterBuilder meterBuilder = new MeterBuilder()
+                .setFlags(new MeterFlags(true, true, false, false))
                 .setMeterBandHeaders(mbhsBuilder.build())
                 .setMeterId(new MeterId(meterIdInc(nodeConnectorRef)))
                 .setMeterName(DEFAULT_METER_NAME)
@@ -143,6 +140,7 @@ public class MeterManager {
 
     private Future<RpcResult<AddMeterOutput>> writeMeterToConfigData(InstanceIdentifier<org.opendaylight.yang.gen.v1.urn.opendaylight.flow.inventory.rev130819.meters.Meter> meterPath,
                                                                      Meter meter) {
+        LOG.info("In writeMeterToConfigData");
         final InstanceIdentifier<Node> nodeInstanceId = meterPath.<Node>firstIdentifierOf(Node.class);
         final AddMeterInputBuilder builder = new AddMeterInputBuilder(meter);
         builder.setNode(new NodeRef(nodeInstanceId));

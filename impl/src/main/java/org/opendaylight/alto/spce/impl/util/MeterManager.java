@@ -8,13 +8,16 @@
 
 package org.opendaylight.alto.spce.impl.util;
 import org.opendaylight.yang.gen.v1.urn.ietf.params.xml.ns.yang.ietf.inet.types.rev100924.Uri;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.alto.spce.rev151106.endpoint.group.Endpoint;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.inventory.rev130819.meters.MeterBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.inventory.rev130819.meters.MeterKey;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.NodeConnectorRef;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.NodeRef;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.node.NodeConnector;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.nodes.Node;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.meter.service.rev130918.AddMeterInputBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.meter.service.rev130918.AddMeterOutput;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.meter.service.rev130918.RemoveMeterInputBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.meter.service.rev130918.SalMeterService;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.meter.types.rev130918.*;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.meter.types.rev130918.band.type.band.type.DropBuilder;
@@ -70,6 +73,21 @@ public class MeterManager {
         }
         return new MeterId(meterIdInSwitch.get(nodeConnectorRef).longValue());
     }*/
+
+    public void removeMeterFromSwitch (Endpoint endpoint, NodeConnectorRef nodeConnectorRef, NodeRef nodeRef, long dropRate, long burstSize) {
+        EndpointPairAndRequirement epr = new EndpointPairAndRequirement(endpoint.getSrc().getValue(), endpoint.getDst().getValue(), dropRate, burstSize);
+        int meterId = switchToPerFlowToMeterIdMap.get(nodeConnectorRef).get(epr).intValue();
+        this.salMeterService.removeMeter(new RemoveMeterInputBuilder()
+                .setMeterId(new MeterId((long)meterId))
+                .setNode(nodeRef)
+                .build());
+        List<Boolean> perSwitchMeterList = switchToMeterIdListMap.get(nodeConnectorRef);
+        perSwitchMeterList.set(meterId, false);
+        switchToMeterIdListMap.put(nodeConnectorRef, perSwitchMeterList);
+        HashMap<EndpointPairAndRequirement, Long> deleteFlowMeterMap = switchToPerFlowToMeterIdMap.get(nodeConnectorRef);
+        deleteFlowMeterMap.remove(epr);
+        switchToPerFlowToMeterIdMap.put(nodeConnectorRef, deleteFlowMeterMap);
+    }
 
     public void addDropMeter(String src, String dst, long dropRate, long dropBurstSize, NodeConnectorRef nodeConnectorRef) {
         LOG.info("In MeterManager.addDropMeter");

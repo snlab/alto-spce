@@ -38,7 +38,9 @@ import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.node.No
 import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.nodes.Node;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.nodes.NodeKey;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.l2.types.rev130827.EtherType;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.meter.service.rev130918.RemoveMeterInputBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.meter.service.rev130918.SalMeterService;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.meter.types.rev130918.MeterId;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.model.match.types.rev131026.ethernet.match.fields.EthernetDestinationBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.model.match.types.rev131026.ethernet.match.fields.EthernetSourceBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.model.match.types.rev131026.ethernet.match.fields.EthernetTypeBuilder;
@@ -70,6 +72,7 @@ public class AltoSpceImpl implements AltoSpceService {
 
     private static final Logger LOG = LoggerFactory.getLogger(FlowManager.class);
     private SalFlowService salFlowService;
+    private SalMeterService salMeterService;
     private NetworkTrackerService networkTrackerService;
     private DataBroker dataBroker;
     private FlowManager flowManager;
@@ -83,6 +86,7 @@ public class AltoSpceImpl implements AltoSpceService {
                         NetworkTrackerService networkTrackerService,
                         DataBroker dataBroker) {
         this.salFlowService = salFlowService;
+        this.salMeterService = salMeterService;
         this.networkTrackerService = networkTrackerService;
         this.dataBroker = dataBroker;
         this.meterManager = new MeterManager(salMeterService);
@@ -104,7 +108,8 @@ public class AltoSpceImpl implements AltoSpceService {
         ErrorCodeType errorCode = //setupPathWithMeter(endpoint, limitedRate, burstSize, pathHashMap.get(endpoint));
                 limitPathRate(endpoint, limitedRate, burstSize);
         RateLimitingSetupOutput output = new RateLimitingSetupOutputBuilder()
-                .setErrorCode(errorCode).build();
+                .setErrorCode(errorCode)
+                .setPath(pathToString(endpoint, pathHashMap.get(endpoint))).build();
         return RpcResultBuilder.success(output).buildFuture();
     }
 
@@ -154,7 +159,19 @@ public class AltoSpceImpl implements AltoSpceService {
 
     @Override
     public Future<RpcResult<RateLimitingRemoveOutput>> rateLimitingRemove(RateLimitingRemoveInput input) {
-        return null;
+        String path = input.getPath();
+        long dropRate = input.getLimitedRate();
+        long burstSize = input.getBurstSize();
+        String src = path.substring(0, path.indexOf('|'));
+        String dst = path.substring(path.lastIndexOf('|')+1);
+        Endpoint endpoint = new EndpointBuilder()
+                .setSrc(new Ipv4Address(src))
+                .setDst(new Ipv4Address(dst))
+                .build();
+        ErrorCodeType errorCode = removePathWithMeter(endpoint, dropRate, burstSize);
+        RateLimitingRemoveOutputBuilder rlrob = new RateLimitingRemoveOutputBuilder()
+                .setErrorCode(errorCode);
+        return RpcResultBuilder.success(rlrob.build()).buildFuture();
     }
 
     public Future<RpcResult<AltoSpceRemoveOutput>> altoSpceRemove(AltoSpceRemoveInput input) {
@@ -343,6 +360,61 @@ public class AltoSpceImpl implements AltoSpceService {
         return ErrorCodeType.OK;
     }
 
+    private ErrorCodeType removePathWithMeter(Endpoint endpoint, long dropRate, long burstSize) {
+
+        List<TpId> tpIds = pathHashMap.get(endpoint);
+        Match macMatch = parseMacMatch(endpoint);
+        Match ipMatch = parseIpMatch(endpoint);
+        if (macMatch == null | ipMatch == null) {
+            return ErrorCodeType.ERROR;
+        }
+        try {
+            for (TpId tpId : tpIds) {
+                NodeRef nodeRef =
+                        new NodeRef(InstanceIdentifier.builder(Nodes.class)
+                                .child(Node.class, new NodeKey(
+                                        new NodeId(tpId.getValue().substring(0, tpId.getValue().lastIndexOf(":")))))
+                                .build());
+                this.salFlowService.removeFlow(new RemoveFlowInputBuilder()
+                        .setMatch(macMatch)
+                        .setNode(nodeRef)
+                        .setTransactionUri(tpId)
+                        .build()
+                );
+                this.salFlowService.removeFlow(new RemoveFlowInputBuilder()
+                        .setMatch(ipMatch)
+                        .setNode(nodeRef)
+                        .build()
+                );
+                String nc_value = tpId.getValue();
+                InstanceIdentifier<NodeConnector> ncid = InstanceIdentifier.builder(Nodes.class)
+                        .child(
+                                Node.class,
+                                new NodeKey(new NodeId(nc_value.substring(0, nc_value.lastIndexOf(':')))))
+                        .child(
+                                NodeConnector.class,
+                                new NodeConnectorKey(new NodeConnectorId(nc_value)))
+                        .build();
+                meterManager.removeMeterFromSwitch(endpoint, new NodeConnectorRef(ncid), nodeRef, dropRate, burstSize);
+                /*this.salMeterService.removeMeter(new RemoveMeterInputBuilder()
+                    .setMeterId(new MeterId(this.meterManager.getPerFlowMeterId(
+                        new NodeConnectorRef(ncid),
+                        endpoint.getSrc().getValue(),
+                        endpoint.getDst().getValue(),
+                        dropRate,
+                        burstSize)))
+                    .setNode(nodeRef)
+                    .build());*/
+            }
+            setupPath(endpoint, pathHashMap.get(endpoint));
+        } catch (Exception e) {
+            LOG.info("Exception occurs when remove a path: " + e.getMessage());
+            return ErrorCodeType.ERROR;
+        }
+        //pathHashMap.remove(endpoint);
+        return ErrorCodeType.OK;
+    }
+
     private ErrorCodeType removePath(String path) {
         String src = path.substring(0, path.indexOf('|'));
         String dst = path.substring(path.lastIndexOf('|')+1);
@@ -382,6 +454,7 @@ public class AltoSpceImpl implements AltoSpceService {
         pathHashMap.remove(endpointBuilder.build());
         return ErrorCodeType.OK;
     }
+
 
     private List<TpId> computePath(Endpoint endpoint,
                                List<AltoSpceMetric> altoSpceMetrics,

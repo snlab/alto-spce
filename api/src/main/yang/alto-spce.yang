@@ -130,6 +130,9 @@ module alto-spce {
         }
 
         output {
+           leaf path {
+               type string;
+           }
            leaf error-code {
                type error-code-type;
            }
@@ -141,6 +144,16 @@ module alto-spce {
             leaf path {
                 type string;
             }
+
+            leaf limited-rate {
+                description "The metric is kbps.";
+                type int32;
+            }
+
+            leaf burst-size {
+                description "The metric is kb. The smaller value means rate limiting is more fine grain";
+                type int32;
+            }
         }
 
         output {
@@ -149,4 +162,6 @@ module alto-spce {
             }
         }
     }
+
+
 }

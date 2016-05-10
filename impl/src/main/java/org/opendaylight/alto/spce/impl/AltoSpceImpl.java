@@ -240,6 +240,7 @@ public class AltoSpceImpl implements AltoSpceService {
         }
         RateLimitingUpdateOutput output = new RateLimitingUpdateOutputBuilder()
                 .setErrorCode(errorCode)
+                .setPath(pathToString(endpoint, pathHashMap.get(endpoint)))
                 .build();
         if (errorCode == ErrorCodeType.OK) {
             srcDstRequirementTable.put(src, dst, Integer.toString(newDropRate) + ':' + Integer.toString(newBurstSize));

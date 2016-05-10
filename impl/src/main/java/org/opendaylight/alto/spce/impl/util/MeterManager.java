@@ -46,16 +46,16 @@ public class MeterManager {
     //private HashMap<NodeConnectorRef, AtomicLong> meterIdInSwitch = new HashMap<>();
 
     //List<Long> is used for allocating a new meter ID in one switch
-    private HashMap<NodeConnectorRef, List<Boolean>> switchToMeterIdListMap = new HashMap<>();
+    private HashMap<NodeRef, List<Boolean>> switchToMeterIdListMap = new HashMap<>();
 
-    private HashMap<NodeConnectorRef, HashMap<EndpointPairAndRequirement, Long>> switchToPerFlowToMeterIdMap = new HashMap<>();
+    private HashMap<NodeRef, HashMap<EndpointPairAndRequirement, Long>> switchToPerFlowToMeterIdMap = new HashMap<>();
 
     public MeterManager(SalMeterService salMeterService) {
         this.salMeterService = salMeterService;
     }
 
     public long getPerFlowMeterId(NodeConnectorRef nodeConnectorRef, String src, String dst, long dropRate, long dropBurstSize) {
-        return switchToPerFlowToMeterIdMap.get(nodeConnectorRef).get(new EndpointPairAndRequirement(src, dst, dropRate, dropBurstSize));
+        return switchToPerFlowToMeterIdMap.get(new NodeRef(InstanceIdentifierUtils.generateNodeInstanceIdentifier(nodeConnectorRef))).get(new EndpointPairAndRequirement(src, dst, dropRate, dropBurstSize));
     }
     /*public HashMap<NodeConnectorRef, Table<Long, Long, Long>> getSwitchMeterMap() {
         return this.switchMeterMap;
@@ -76,38 +76,38 @@ public class MeterManager {
 
     public void removeMeterFromSwitch (Endpoint endpoint, NodeConnectorRef nodeConnectorRef, NodeRef nodeRef, long dropRate, long burstSize) {
         EndpointPairAndRequirement epr = new EndpointPairAndRequirement(endpoint.getSrc().getValue(), endpoint.getDst().getValue(), dropRate, burstSize);
-        int meterId = switchToPerFlowToMeterIdMap.get(nodeConnectorRef).get(epr).intValue();
+        int meterId = switchToPerFlowToMeterIdMap.get(new NodeRef(InstanceIdentifierUtils.generateNodeInstanceIdentifier(nodeConnectorRef))).get(epr).intValue();
         this.salMeterService.removeMeter(new RemoveMeterInputBuilder()
                 .setMeterId(new MeterId((long)meterId))
                 .setNode(nodeRef)
                 .build());
-        List<Boolean> perSwitchMeterList = switchToMeterIdListMap.get(nodeConnectorRef);
+        List<Boolean> perSwitchMeterList = switchToMeterIdListMap.get(new NodeRef(InstanceIdentifierUtils.generateNodeInstanceIdentifier(nodeConnectorRef)));
         perSwitchMeterList.set(meterId, false);
-        switchToMeterIdListMap.put(nodeConnectorRef, perSwitchMeterList);
-        HashMap<EndpointPairAndRequirement, Long> deleteFlowMeterMap = switchToPerFlowToMeterIdMap.get(nodeConnectorRef);
+        switchToMeterIdListMap.put(new NodeRef(InstanceIdentifierUtils.generateNodeInstanceIdentifier(nodeConnectorRef)), perSwitchMeterList);
+        HashMap<EndpointPairAndRequirement, Long> deleteFlowMeterMap = switchToPerFlowToMeterIdMap.get(new NodeRef(InstanceIdentifierUtils.generateNodeInstanceIdentifier(nodeConnectorRef)));
         deleteFlowMeterMap.remove(epr);
-        switchToPerFlowToMeterIdMap.put(nodeConnectorRef, deleteFlowMeterMap);
+        switchToPerFlowToMeterIdMap.put(new NodeRef(InstanceIdentifierUtils.generateNodeInstanceIdentifier(nodeConnectorRef)), deleteFlowMeterMap);
     }
 
     public void addDropMeter(String src, String dst, long dropRate, long dropBurstSize, NodeConnectorRef nodeConnectorRef) {
         LOG.info("In MeterManager.addDropMeter");
         List<Boolean> perSwitchMeterList;
         HashMap<EndpointPairAndRequirement, Long> perSwitchPerFlowToMeterIdMap;
-        if (!switchToMeterIdListMap.containsKey(nodeConnectorRef)) {
+        if (!switchToMeterIdListMap.containsKey(new NodeRef(InstanceIdentifierUtils.generateNodeInstanceIdentifier(nodeConnectorRef)))) {
             perSwitchMeterList = new LinkedList<>();
             for (int i=0 ; i<=MAX_METER_ID_PICA8; ++i) {
                 //false stands for meterId == i is free. We must use i from 1 not from 0.
                 perSwitchMeterList.add(false);
             }
-            switchToMeterIdListMap.put(nodeConnectorRef, perSwitchMeterList);
+            switchToMeterIdListMap.put(new NodeRef(InstanceIdentifierUtils.generateNodeInstanceIdentifier(nodeConnectorRef)), perSwitchMeterList);
         }
-        if (!switchToPerFlowToMeterIdMap.containsKey(nodeConnectorRef)) {
+        if (!switchToPerFlowToMeterIdMap.containsKey(new NodeRef(InstanceIdentifierUtils.generateNodeInstanceIdentifier(nodeConnectorRef)))) {
             perSwitchPerFlowToMeterIdMap = new HashMap<>();
-            switchToPerFlowToMeterIdMap.put(nodeConnectorRef, perSwitchPerFlowToMeterIdMap);
+            switchToPerFlowToMeterIdMap.put(new NodeRef(InstanceIdentifierUtils.generateNodeInstanceIdentifier(nodeConnectorRef)), perSwitchPerFlowToMeterIdMap);
         }
 
-        perSwitchMeterList = switchToMeterIdListMap.get(nodeConnectorRef);
-        perSwitchPerFlowToMeterIdMap = switchToPerFlowToMeterIdMap.get(nodeConnectorRef);
+        perSwitchMeterList = switchToMeterIdListMap.get(new NodeRef(InstanceIdentifierUtils.generateNodeInstanceIdentifier(nodeConnectorRef)));
+        perSwitchPerFlowToMeterIdMap = switchToPerFlowToMeterIdMap.get(new NodeRef(InstanceIdentifierUtils.generateNodeInstanceIdentifier(nodeConnectorRef)));
 
         int firstFreeMeterId = 1;
         while (perSwitchMeterList.get(firstFreeMeterId)) {
@@ -120,8 +120,8 @@ public class MeterManager {
         EndpointPairAndRequirement epr = new EndpointPairAndRequirement(src, dst, dropRate, dropBurstSize);
         perSwitchPerFlowToMeterIdMap.put(epr, (long)firstFreeMeterId);
 
-        switchToMeterIdListMap.put(nodeConnectorRef, perSwitchMeterList);
-        switchToPerFlowToMeterIdMap.put(nodeConnectorRef, perSwitchPerFlowToMeterIdMap);
+        switchToMeterIdListMap.put(new NodeRef(InstanceIdentifierUtils.generateNodeInstanceIdentifier(nodeConnectorRef)), perSwitchMeterList);
+        switchToPerFlowToMeterIdMap.put(new NodeRef(InstanceIdentifierUtils.generateNodeInstanceIdentifier(nodeConnectorRef)), perSwitchPerFlowToMeterIdMap);
     }
 
     public void addDropMeterByPath(String src, String dst, long dropRate, long dropBurstSize, List<NodeConnectorRef> path) {

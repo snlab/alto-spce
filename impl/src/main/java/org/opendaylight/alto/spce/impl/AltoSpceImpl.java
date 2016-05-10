@@ -9,6 +9,8 @@
 package org.opendaylight.alto.spce.impl;
 
 import com.google.common.base.Optional;
+import com.google.common.collect.HashBasedTable;
+import com.google.common.collect.Table;
 import org.opendaylight.alto.spce.impl.algorithm.PathComputation;
 import org.opendaylight.alto.spce.impl.util.FlowManager;
 import org.opendaylight.alto.spce.impl.util.InventoryReader;
@@ -80,6 +82,7 @@ public class AltoSpceImpl implements AltoSpceService {
     private InventoryReader inventoryReader;
     private PathComputation pathComputation;
     private HashMap<Endpoint, List<TpId>> pathHashMap = new HashMap<>();
+    private Table<String, String, String> srcDstRequirementTable = HashBasedTable.create();
 
     public AltoSpceImpl(SalFlowService salFlowService,
                         SalMeterService salMeterService,
@@ -110,6 +113,9 @@ public class AltoSpceImpl implements AltoSpceService {
         RateLimitingSetupOutput output = new RateLimitingSetupOutputBuilder()
                 .setErrorCode(errorCode)
                 .setPath(pathToString(endpoint, pathHashMap.get(endpoint))).build();
+        if (errorCode == ErrorCodeType.OK) {
+            srcDstRequirementTable.put(src, dst, Integer.toString(limitedRate) + ':' + Integer.toString(burstSize));
+        }
         return RpcResultBuilder.success(output).buildFuture();
     }
 
@@ -160,15 +166,23 @@ public class AltoSpceImpl implements AltoSpceService {
     @Override
     public Future<RpcResult<RateLimitingRemoveOutput>> rateLimitingRemove(RateLimitingRemoveInput input) {
         String path = input.getPath();
-        long dropRate = input.getLimitedRate();
-        long burstSize = input.getBurstSize();
+        //long dropRate = input.getLimitedRate();
+        //long burstSize = input.getBurstSize();
         String src = path.substring(0, path.indexOf('|'));
         String dst = path.substring(path.lastIndexOf('|')+1);
         Endpoint endpoint = new EndpointBuilder()
                 .setSrc(new Ipv4Address(src))
                 .setDst(new Ipv4Address(dst))
                 .build();
-        ErrorCodeType errorCode = removePathWithMeter(endpoint, dropRate, burstSize);
+        String oldDropRateBurstSizeString = srcDstRequirementTable.get(src, dst);
+        String oldDropRateString = oldDropRateBurstSizeString.substring(0, oldDropRateBurstSizeString.indexOf(':'));
+        String oldBurstSizeString = oldDropRateBurstSizeString.substring(oldDropRateBurstSizeString.indexOf(':')+1);
+        int oldDropRate = Integer.parseInt(oldDropRateString);
+        int oldBurstSize = Integer.parseInt(oldBurstSizeString);
+        ErrorCodeType errorCode = removePathWithMeter(endpoint, oldDropRate, oldBurstSize);
+        if (errorCode == ErrorCodeType.OK) {
+            srcDstRequirementTable.remove(src, dst);
+        }
         RateLimitingRemoveOutputBuilder rlrob = new RateLimitingRemoveOutputBuilder()
                 .setErrorCode(errorCode);
         return RpcResultBuilder.success(rlrob.build()).buildFuture();
@@ -200,6 +214,36 @@ public class AltoSpceImpl implements AltoSpceService {
                 .setPath(pathToString(endpoint, path))
                 .setErrorCode(errorCode)
                 .build();
+        return RpcResultBuilder.success(output).buildFuture();
+    }
+
+    @Override
+    public Future<RpcResult<RateLimitingUpdateOutput>> rateLimitingUpdate(RateLimitingUpdateInput input) {
+        Endpoint endpoint = input.getEndpoint();
+        String src = endpoint.getSrc().getValue();
+        String dst = endpoint.getDst().getValue();
+        String oldDropRateBurstSizeString = srcDstRequirementTable.get(src, dst);
+        String oldDropRateString = oldDropRateBurstSizeString.substring(0, oldDropRateBurstSizeString.indexOf(':'));
+        String oldBurstSizeString = oldDropRateBurstSizeString.substring(oldDropRateBurstSizeString.indexOf(':')+1);
+        int oldDropRate = Integer.parseInt(oldDropRateString);
+        int oldBurstSize = Integer.parseInt(oldBurstSizeString);
+        int newDropRate = input.getLimitedRate();
+        int newBurstSize = input.getBurstSize();
+        ErrorCodeType removeErrorCode = removePathWithMeter(endpoint, oldDropRate, oldBurstSize);
+        if (removeErrorCode == ErrorCodeType.OK) {
+            srcDstRequirementTable.remove(src, dst);
+        }
+        ErrorCodeType setupErrorCode = limitPathRate(endpoint, newDropRate, newBurstSize);
+        ErrorCodeType errorCode = ErrorCodeType.OK;
+        if (removeErrorCode == ErrorCodeType.ERROR || setupErrorCode == ErrorCodeType.ERROR ) {
+            errorCode = ErrorCodeType.ERROR;
+        }
+        RateLimitingUpdateOutput output = new RateLimitingUpdateOutputBuilder()
+                .setErrorCode(errorCode)
+                .build();
+        if (errorCode == ErrorCodeType.OK) {
+            srcDstRequirementTable.put(src, dst, Integer.toString(newDropRate) + ':' + Integer.toString(newBurstSize));
+        }
         return RpcResultBuilder.success(output).buildFuture();
     }
 

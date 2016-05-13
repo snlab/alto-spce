@@ -45,8 +45,12 @@ public class NetworkTrackerRpcHandler implements NetworkTrackerService {
     @Override
     public Future<RpcResult<AltoSpceGetTxBandwidthOutput>> altoSpceGetTxBandwidth(AltoSpceGetTxBandwidthInput input) {
         String tpId = input.getTpId();
+        BigInteger speed = BigInteger.valueOf(this.networkPortStatisticsService.getAvailableTxBandwidth(tpId, null));
+        if (speed.longValue() < 0) {
+            speed = BigInteger.ZERO;
+        }
         AltoSpceGetTxBandwidthOutput output = new AltoSpceGetTxBandwidthOutputBuilder()
-                .setSpeed(BigInteger.valueOf(this.networkPortStatisticsService.getAvailableTxBandwidth(tpId, null)))
+                .setSpeed(speed)
                 .build();
         return RpcResultBuilder.success(output).buildFuture();
     }

@@ -12,6 +12,7 @@ import com.google.common.base.Optional;
 import com.google.common.collect.HashBasedTable;
 import com.google.common.collect.Table;
 import org.opendaylight.alto.spce.impl.algorithm.PathComputation;
+import org.opendaylight.alto.spce.impl.util.BandwidthTopology;
 import org.opendaylight.alto.spce.impl.util.FlowManager;
 import org.opendaylight.alto.spce.impl.util.InventoryReader;
 import org.opendaylight.alto.spce.impl.util.MeterManager;
@@ -57,6 +58,7 @@ import org.opendaylight.yang.gen.v1.urn.tbd.params.xml.ns.yang.network.topology.
 import org.opendaylight.yang.gen.v1.urn.tbd.params.xml.ns.yang.network.topology.rev131021.TpId;
 import org.opendaylight.yang.gen.v1.urn.tbd.params.xml.ns.yang.network.topology.rev131021.network.topology.Topology;
 import org.opendaylight.yang.gen.v1.urn.tbd.params.xml.ns.yang.network.topology.rev131021.network.topology.TopologyKey;
+import org.opendaylight.yang.gen.v1.urn.tbd.params.xml.ns.yang.network.topology.rev131021.network.topology.topology.Link;
 import org.opendaylight.yangtools.yang.binding.InstanceIdentifier;
 import org.opendaylight.yangtools.yang.common.RpcResult;
 import org.opendaylight.yangtools.yang.common.RpcResultBuilder;
@@ -67,6 +69,7 @@ import java.math.BigInteger;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 
@@ -83,6 +86,7 @@ public class AltoSpceImpl implements AltoSpceService {
     private PathComputation pathComputation;
     private HashMap<Endpoint, List<TpId>> pathHashMap = new HashMap<>();
     private Table<String, String, String> srcDstRequirementTable = HashBasedTable.create();
+    private long BandwidthMap[][];
 
     public AltoSpceImpl(SalFlowService salFlowService,
                         SalMeterService salMeterService,
@@ -198,6 +202,65 @@ public class AltoSpceImpl implements AltoSpceService {
         return RpcResultBuilder.success(output).buildFuture();
     }
 
+    @Override
+    public Future<RpcResult<GetPathOutput>> getPath(GetPathInput input) {
+        Endpoint endpoint = input.getEndpoint();
+        List<TpId> path = pathHashMap.get(endpoint);
+        GetPathOutput output;
+        if (null == path) {
+            output = new GetPathOutputBuilder()
+                    .setPath("No path available")
+                    .setErrorCode(ErrorCodeType.ERROR)
+                    .build();
+        } else {
+            output = new GetPathOutputBuilder()
+                    .setPath(pathToString(endpoint, path))
+                    .setErrorCode(ErrorCodeType.OK)
+                    .build();
+        }
+        return RpcResultBuilder.success(output).buildFuture();
+    }
+
+    @Override
+    public Future<RpcResult<GetBandwidthTopologyOutput>> getBandwidthTopology() {
+
+        Topology topology = null;
+        String tpIdMap = null;
+        String bandwidthTopologyMap = null;
+        String result = "GetBandwidthTopologyError";
+        try {
+            ReadOnlyTransaction readTx = this.dataBroker.newReadOnlyTransaction();
+
+            InstanceIdentifier<Topology> topologyInstanceIdentifier = InstanceIdentifier
+                    .builder(NetworkTopology.class)
+                    .child(Topology.class, new TopologyKey(new TopologyId("flow:1")))
+                    .build();
+
+            Optional<Topology> dataFuture = readTx.read(LogicalDatastoreType.OPERATIONAL,
+                    topologyInstanceIdentifier).get();
+            topology = dataFuture.get();
+        } catch (Exception e) {
+            LOG.info("Exception occurs when get topology: " + e.getMessage());
+        }
+
+        GetBandwidthTopologyOutputBuilder outputBuilder = new GetBandwidthTopologyOutputBuilder();
+
+        if (null == topology) {
+            //返回null，获取拓扑失败
+            outputBuilder.setErrorCode(ErrorCodeType.ERROR);
+        } else {
+            BandwidthTopology bt = new BandwidthTopology(topology, networkTrackerService);;
+            tpIdMap = bt.getTpIdMap();
+            bandwidthTopologyMap = bt.getBandwidthMap();
+            if (null == tpIdMap || null == bandwidthTopologyMap) {
+                outputBuilder.setErrorCode(ErrorCodeType.ERROR);
+            } else {
+                outputBuilder.setBandwidthTopology(bandwidthTopologyMap).setTpidMap(tpIdMap).setErrorCode(ErrorCodeType.OK);
+            }
+        }
+        return RpcResultBuilder.success(outputBuilder.build()).buildFuture();
+    }
+
     public Future<RpcResult<AltoSpceSetupOutput>> altoSpceSetup(AltoSpceSetupInput input) {
         Endpoint endpoint = input.getEndpoint();
         List<AltoSpceMetric> altoSpceMetrics = input.getObjectiveMetrics();
@@ -207,6 +270,13 @@ public class AltoSpceImpl implements AltoSpceService {
 
         if (constraintMetrics != null) {
             path = computePath(endpoint, altoSpceMetrics, constraintMetrics);
+            if (null == path) {
+                AltoSpceSetupOutput output = new AltoSpceSetupOutputBuilder()
+                        .setPath("No available path")
+                        .setErrorCode(ErrorCodeType.ERROR)
+                        .build();
+                return RpcResultBuilder.success(output).buildFuture();
+            }
             errorCode = setupPath(endpoint, path);
         }
 

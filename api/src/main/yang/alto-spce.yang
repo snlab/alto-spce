@@ -206,5 +206,34 @@ module alto-spce {
         }
     }
 
+    rpc get-path {
+        input {
+            uses endpoint-group;
+        }
+
+        output {
+           leaf path {
+               type string;
+           }
+           leaf error-code {
+               type error-code-type;
+           }
+        }
+    }
+
+    rpc get-bandwidthTopology {
+        output {
+            leaf tpid-map {
+                type string;
+            }
+            leaf bandwidth-topology {
+                type string;
+            }
+            leaf error-code {
+                type error-code-type;
+            }
+        }
+    }
+
 
 }

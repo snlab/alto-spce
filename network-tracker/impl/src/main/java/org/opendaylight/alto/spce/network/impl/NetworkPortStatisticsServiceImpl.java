@@ -79,6 +79,9 @@ public class NetworkPortStatisticsServiceImpl implements NetworkPortStatisticsSe
 
     @Override
     public Long getAvailableTxBandwidth(String tpId, Long meterId) {
+        if (tpId == null) {
+            return 0L;
+        }
         FlowCapableNodeConnector nodeConnector = getFlowCapableNodeConnector(tpId);
         Long capacity = getCapacity(nodeConnector, readMeter(tpId, meterId));
         Long consumedBandwidth = getConsumedBandwidth(tpId, isHalfDuplex(nodeConnector));
@@ -125,18 +128,21 @@ public class NetworkPortStatisticsServiceImpl implements NetworkPortStatisticsSe
 
     private Long getConsumedBandwidth(String tpId, boolean isHalfDuplex) {
         try {
-            long transmitted = getCurrentTxSpeed(tpId, NetworkPortStatisticsService.Metric.BITSPERSECOND)
+            Long transmitted = getCurrentTxSpeed(tpId, NetworkPortStatisticsService.Metric.BITSPERSECOND)
                     / 1000;
-            long received = getCurrentRxSpeed(tpId, NetworkPortStatisticsService.Metric.BITSPERSECOND)
+            Long received = getCurrentRxSpeed(tpId, NetworkPortStatisticsService.Metric.BITSPERSECOND)
                     / 1000;
+            if (null == transmitted || null == received) {
+                return Long.valueOf(0);
+            }
             if (isHalfDuplex) {
                 return transmitted + received;
             } else {
                 return transmitted;
             }
         } catch (Exception e) {
-            logger.error("TpId is: " + tpId);
-            e.printStackTrace();
+            logger.error("TpId is: " + tpId + ", could not get the statistic");
+            //e.printStackTrace();
             return Long.valueOf(0);
         }
     }
@@ -144,6 +150,8 @@ public class NetworkPortStatisticsServiceImpl implements NetworkPortStatisticsSe
     private boolean isHalfDuplex(FlowCapableNodeConnector nodeConnector) {
         if (nodeConnector == null) return false;
         boolean[] portFeatures = nodeConnector.getCurrentFeature().getValue();
+        if (portFeatures == null)
+            return false;
         return portFeatures[NetworkServiceConstants.PORT_FEATURES.get(NetworkServiceConstants.TEN_MB_HD)]
                 || portFeatures[NetworkServiceConstants.PORT_FEATURES.get(NetworkServiceConstants.HUNDRED_MD_HD)]
                 || portFeatures[NetworkServiceConstants.PORT_FEATURES.get(NetworkServiceConstants.ONE_GB_HD)];

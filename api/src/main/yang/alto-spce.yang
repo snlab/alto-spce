@@ -53,18 +53,7 @@ module alto-spce {
 
         input {
             uses endpoint-group;
-            /*container endpoint {
-                leaf src {
-                    type inet:ipv4-address;
-                    mandatory true;
-                    description "Source IP address";
-                }
-                leaf dst {
-                    type inet:ipv4-address;
-                    mandatory true;
-                    description "Destination IP address";
-                } 
-            }*/
+
             leaf-list objective-metrics {
                 type alto-spce-metric;
             }
@@ -114,9 +103,6 @@ module alto-spce {
 
         input {
             uses endpoint-group;
-            /*leaf path {
-                type string;
-            }*/
 
             leaf limited-rate {
                 description "The metric is kbps.";
@@ -146,19 +132,6 @@ module alto-spce {
 
         input {
             uses endpoint-group;
-            /*leaf path {
-                type string;
-            }*/
-
-            /*leaf old-limited-rate {
-                description "The metric is kbps.";
-                type int32;
-            }
-
-            leaf old-burst-size {
-                description "The metric is kb. The smaller value means rate limiting is more fine grain";
-                type int32;
-            }*/
 
             leaf limited-rate {
                 description "The metric is kbps.";
@@ -186,17 +159,6 @@ module alto-spce {
             leaf path {
                 type string;
             }
-/*
-            leaf limited-rate {
-                description "The metric is kbps.";
-                type int32;
-            }
-
-            leaf burst-size {
-                description "The metric is kb. The smaller value means rate limiting is more fine grain";
-                type int32;
-            }
-*/
         }
 
         output {
@@ -215,13 +177,19 @@ module alto-spce {
            leaf path {
                type string;
            }
+           leaf bandwidth {
+               type int32;
+           }
+           leaf burst_size {
+               type int32;
+           }
            leaf error-code {
                type error-code-type;
            }
         }
     }
 
-    rpc get-bandwidthTopology {
+    rpc get-bandwidth-topology {
         output {
             leaf tpid-map {
                 type string;

@@ -95,7 +95,8 @@ public class NetworkPortStatisticsServiceImpl implements NetworkPortStatisticsSe
             return DataHelper.readOperational(dataBroker,
                     InstanceIdentifierUtils.flowCapableNodeConnector(tpId));
         } catch (ReadDataFailedException e) {
-            e.printStackTrace();
+            logger.error("Read data error in " + tpId);
+            //e.printStackTrace();
         }
         return null;
     }
@@ -119,7 +120,8 @@ public class NetworkPortStatisticsServiceImpl implements NetworkPortStatisticsSe
             return DataHelper.readOperational(this.dataBroker,
                     InstanceIdentifierUtils.flowCapableNodeMeter(nodeId, meterId));
         } catch (ReadDataFailedException e) {
-            e.printStackTrace();
+            logger.error("Read meter error in " + tpId);
+            //e.printStackTrace();
         } catch (NullPointerException e) {
             return null;
         }
@@ -141,7 +143,7 @@ public class NetworkPortStatisticsServiceImpl implements NetworkPortStatisticsSe
                 return transmitted;
             }
         } catch (Exception e) {
-            logger.error("TpId is: " + tpId + ", could not get the statistic");
+            logger.error("TpId is: " + tpId + ", could not get the statistic for consumedBandwidth");
             //e.printStackTrace();
             return Long.valueOf(0);
         }

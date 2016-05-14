@@ -29,6 +29,7 @@ public class BandwidthTopology {
     private long BandwidthMap[][];
     private Map<NodeId, Integer> tpIdMap = new HashMap<>();
     private int nodeNum = 0;
+    private int switchNum = 0;
 
     public String getTpIdMap() {
         StringBuffer result = new StringBuffer("{");
@@ -42,9 +43,9 @@ public class BandwidthTopology {
     }
     public String getBandwidthMap() {
         StringBuffer result = new StringBuffer("[");
-        for (int i = 0; i < nodeNum; ++i) {
+        for (int i = 0; i < switchNum; ++i) {
             result.append('[');
-            for (int j = 0; j < nodeNum; ++j) {
+            for (int j = 0; j < switchNum; ++j) {
                 result.append(BandwidthMap[i][j]);
                 result.append(',');
             }
@@ -60,20 +61,26 @@ public class BandwidthTopology {
     public BandwidthTopology(Topology topology, NetworkTrackerService networkTrackerService) {
         nodeNum = topology.getNode().toArray().length;
         //Map<NodeId, Integer> tpIdMap = new HashMap<>();
+        int switchIndex = 0;
         for (int i = 0; i < nodeNum; i++) {
             NodeId nodeId = topology.getNode().get(i).getNodeId();
-            tpIdMap.put(nodeId, i);
+            if (!(nodeId.getValue().contains("host"))) {
+                tpIdMap.put(nodeId, switchIndex);
+                ++switchNum;
+                ++switchIndex;
+            }
         }
-        this.BandwidthMap = new long[nodeNum][nodeNum];
-        for (int i = 0; i < nodeNum; i++) {
-            for (int j = 0; j < nodeNum; j++) {
+        this.BandwidthMap = new long[switchNum][switchNum];
+        for (int i = 0; i < switchNum; i++) {
+            for (int j = 0; j < switchNum; j++) {
                 this.BandwidthMap[i][j] = 0;
             }
         }
         for (Link link : topology.getLink()) {
-            int src = tpIdMap.get(link.getSource().getSourceNode());
-            int dst = tpIdMap.get(link.getDestination().getDestNode());
-            this.BandwidthMap[src][dst] = getBandwidthByTp(link.getSource().getSourceTp(), networkTrackerService);
+            Integer src = tpIdMap.get(link.getSource().getSourceNode());
+            Integer dst = tpIdMap.get(link.getDestination().getDestNode());
+            if (null != src && null != dst)
+                this.BandwidthMap[src][dst] = getBandwidthByTp(link.getSource().getSourceTp(), networkTrackerService);
         }
     }
 

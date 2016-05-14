@@ -209,12 +209,21 @@ public class AltoSpceImpl implements AltoSpceService {
         GetPathOutput output;
         if (null == path) {
             output = new GetPathOutputBuilder()
-                    .setPath("No path available")
+                    .setPath("NoPathAvailable")
+                    .setBandwidth(-1)
+                    .setBurstSize(-1)
                     .setErrorCode(ErrorCodeType.ERROR)
                     .build();
         } else {
+            String src = endpoint.getSrc().getValue();
+            String dst = endpoint.getDst().getValue();
+            String oldDropRateBurstSizeString = srcDstRequirementTable.get(src, dst);
+            String oldDropRateString = oldDropRateBurstSizeString.substring(0, oldDropRateBurstSizeString.indexOf(':'));
+            String oldBurstSizeString = oldDropRateBurstSizeString.substring(oldDropRateBurstSizeString.indexOf(':')+1);
             output = new GetPathOutputBuilder()
                     .setPath(pathToString(endpoint, path))
+                    .setBandwidth(Integer.valueOf(Integer.parseInt(oldDropRateString)))
+                    .setBurstSize(Integer.valueOf(Integer.parseInt(oldBurstSizeString)))
                     .setErrorCode(ErrorCodeType.OK)
                     .build();
         }
@@ -247,13 +256,17 @@ public class AltoSpceImpl implements AltoSpceService {
 
         if (null == topology) {
             //返回null，获取拓扑失败
-            outputBuilder.setErrorCode(ErrorCodeType.ERROR);
+            outputBuilder
+                    .setErrorCode(ErrorCodeType.ERROR)
+                    .setBandwidthTopology("GetBandwidthTopologyError");
         } else {
             BandwidthTopology bt = new BandwidthTopology(topology, networkTrackerService);;
             tpIdMap = bt.getTpIdMap();
             bandwidthTopologyMap = bt.getBandwidthMap();
             if (null == tpIdMap || null == bandwidthTopologyMap) {
-                outputBuilder.setErrorCode(ErrorCodeType.ERROR);
+                outputBuilder.setErrorCode(ErrorCodeType.ERROR)
+                        .setBandwidthTopology("GetBandwidthTopologyError")
+                        .setTpidMap("GetTpIdMapError");
             } else {
                 outputBuilder.setBandwidthTopology(bandwidthTopologyMap).setTpidMap(tpIdMap).setErrorCode(ErrorCodeType.OK);
             }
@@ -639,7 +652,7 @@ public class AltoSpceImpl implements AltoSpceService {
             }
             LOG.info("Setup a path: srcIp=" + srcIp.getValue() + ", dstIp=" + dstIp.getValue());
             LOG.info("Setup a path: srcMac=" + srcMac.getValue() + ", dstMac=" + dstMac.getValue());
-            LOG.info("Setup a path with rate limiting, and nodeConnectorRefs is" + nodeConnectorRefs.toString());
+            LOG.info("Setup a path, and nodeConnectorRefs is" + nodeConnectorRefs.toString());
             this.flowManager.addFlowByPath(srcIp, dstIp, nodeConnectorRefs);
             //this.flowManager.addFlowByPath(srcMac, dstMac, nodeConnectorRefs);
         } catch (Exception e) {
@@ -679,7 +692,8 @@ public class AltoSpceImpl implements AltoSpceService {
 
             LOG.info("Setup a path with rate limiting" + dropRate + ": srcIp=" + srcIp.getValue() + ", dstIp=" + dstIp.getValue());
             LOG.info("Setup a path with rate limiting" + dropRate + ": srcMac=" + srcMac.getValue() + ", dstMac=" + dstMac.getValue());
-            LOG.info("Setup a path with rate limiting, and nodeConnectorRefs is" + nodeConnectorRefs.toString());
+            LOG.info("Setup a path with rate limiting, and" +
+                    " nodeConnectorRefs is" + nodeConnectorRefs.toString());
             this.flowManager.addFlowByPathWithMeter(srcIp, dstIp, dropRate, dropBurstSize, nodeConnectorRefs);
             LOG.info("add IP By path with meter finished");
             //this.flowManager.addFlowByPathWithMeter(srcMac, dstMac, dropRate, dropBurstSize, nodeConnectorRefs);

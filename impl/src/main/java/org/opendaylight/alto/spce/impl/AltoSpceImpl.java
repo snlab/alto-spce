@@ -186,6 +186,7 @@ public class AltoSpceImpl implements AltoSpceService {
         ErrorCodeType errorCode = removePathWithMeter(endpoint, oldDropRate, oldBurstSize);
         if (errorCode == ErrorCodeType.OK) {
             srcDstRequirementTable.remove(src, dst);
+            srcDstRequirementTable.put(src, dst, "-1:-1");
         }
         RateLimitingRemoveOutputBuilder rlrob = new RateLimitingRemoveOutputBuilder()
                 .setErrorCode(errorCode);

@@ -189,6 +189,17 @@ module alto-spce {
         }
     }
 
+    rpc get-tp-bandwidth-map {
+        output {
+            leaf tp-bandwidth-map{
+                type string;
+            }
+            leaf error-code {
+                type error-code-type;
+            }
+        }
+    }
+
     rpc get-bandwidth-topology {
         output {
             leaf tpid-map {

@@ -8,6 +8,7 @@
 
 package org.opendaylight.alto.spce.impl.util;
 
+        import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.node.NodeConnector;
         import org.opendaylight.yang.gen.v1.urn.opendaylight.params.xml.ns.yang.network.tracker.rev151107.AltoSpceGetTxBandwidthInput;
         import org.opendaylight.yang.gen.v1.urn.opendaylight.params.xml.ns.yang.network.tracker.rev151107.AltoSpceGetTxBandwidthInputBuilder;
         import org.opendaylight.yang.gen.v1.urn.opendaylight.params.xml.ns.yang.network.tracker.rev151107.AltoSpceGetTxBandwidthOutput;
@@ -30,6 +31,7 @@ public class BandwidthTopology {
     private Map<NodeId, Integer> tpIdMap = new HashMap<>();
     private int nodeNum = 0;
     private int switchNum = 0;
+    private Map<NodeConnector, Integer> ncBandwidthMap = new HashMap<>();
 
     public String getTpIdMap() {
         StringBuffer result = new StringBuffer("{");
@@ -77,6 +79,8 @@ public class BandwidthTopology {
             }
         }
         for (Link link : topology.getLink()) {
+            TpId tpId = link.getSource().getSourceTp();
+
             Integer src = tpIdMap.get(link.getSource().getSourceNode());
             Integer dst = tpIdMap.get(link.getDestination().getDestNode());
             if (null != src && null != dst)

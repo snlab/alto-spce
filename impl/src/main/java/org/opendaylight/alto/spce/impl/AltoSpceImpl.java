@@ -12,10 +12,7 @@ import com.google.common.base.Optional;
 import com.google.common.collect.HashBasedTable;
 import com.google.common.collect.Table;
 import org.opendaylight.alto.spce.impl.algorithm.PathComputation;
-import org.opendaylight.alto.spce.impl.util.BandwidthTopology;
-import org.opendaylight.alto.spce.impl.util.FlowManager;
-import org.opendaylight.alto.spce.impl.util.InventoryReader;
-import org.opendaylight.alto.spce.impl.util.MeterManager;
+import org.opendaylight.alto.spce.impl.util.*;
 import org.opendaylight.controller.md.sal.binding.api.DataBroker;
 import org.opendaylight.controller.md.sal.binding.api.ReadOnlyTransaction;
 import org.opendaylight.controller.md.sal.common.api.data.LogicalDatastoreType;
@@ -232,6 +229,46 @@ public class AltoSpceImpl implements AltoSpceService {
     }
 
     @Override
+    public Future<RpcResult<GetTpBandwidthMapOutput>> getTpBandwidthMap() {
+        Topology topology = null;
+        String result = "GetTpBandwidthMapError";
+        try {
+            ReadOnlyTransaction readTx = this.dataBroker.newReadOnlyTransaction();
+
+            InstanceIdentifier<Topology> topologyInstanceIdentifier = InstanceIdentifier
+                    .builder(NetworkTopology.class)
+                    .child(Topology.class, new TopologyKey(new TopologyId("flow:1")))
+                    .build();
+
+            Optional<Topology> dataFuture = readTx.read(LogicalDatastoreType.OPERATIONAL,
+                    topologyInstanceIdentifier).get();
+            topology = dataFuture.get();
+        } catch (Exception e) {
+            LOG.info("Exception occurs when get topology: " + e.getMessage());
+        }
+
+        GetTpBandwidthMapOutputBuilder outputBuilder = new GetTpBandwidthMapOutputBuilder();
+
+        if (null == topology) {
+            outputBuilder
+                    .setErrorCode(ErrorCodeType.ERROR)
+                    .setTpBandwidthMap(result);
+        } else {
+            TpBandwidthMap tpBandwidthMap = new TpBandwidthMap(topology, networkTrackerService);
+            String tpBandwidthMapString = tpBandwidthMap.getTpBandwidthMap();
+            if (null != tpBandwidthMapString) {
+                outputBuilder
+                        .setErrorCode(ErrorCodeType.OK)
+                        .setTpBandwidthMap(tpBandwidthMapString);
+            } else {
+                outputBuilder.setErrorCode(ErrorCodeType.ERROR);
+            }
+        }
+        return RpcResultBuilder.success(outputBuilder.build()).buildFuture();
+
+    }
+
+    @Override
     public Future<RpcResult<GetBandwidthTopologyOutput>> getBandwidthTopology() {
 
         Topology topology = null;
@@ -256,7 +293,6 @@ public class AltoSpceImpl implements AltoSpceService {
         GetBandwidthTopologyOutputBuilder outputBuilder = new GetBandwidthTopologyOutputBuilder();
 
         if (null == topology) {
-            //返回null，获取拓扑失败
             outputBuilder
                     .setErrorCode(ErrorCodeType.ERROR)
                     .setBandwidthTopology("GetBandwidthTopologyError");

@@ -660,6 +660,7 @@ public class AltoSpceImpl implements AltoSpceService {
             return ErrorCodeType.ERROR;
         }
         pathHashMap.put(endpoint, path);
+        srcDstRequirementTable.put(endpoint.getSrc().getValue(), endpoint.getDst().getValue(), "-1:-1");
         LOG.info("Update pathHashMap" + path.toString());
         return ErrorCodeType.OK;
     }

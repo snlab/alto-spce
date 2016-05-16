@@ -23,7 +23,9 @@ import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.node.No
 import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.node.NodeConnectorKey;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.meter.types.rev130918.meter.meter.band.headers.MeterBandHeader;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.model.statistics.types.rev130925.node.connector.statistics.Bytes;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.model.statistics.types.rev130925.node.connector.statistics.Packets;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.port.statistics.rev131214.FlowCapableNodeConnectorStatisticsData;
+import org.opendaylight.yang.gen.v1.urn.tbd.params.xml.ns.yang.network.topology.rev130712.TpId;
 import org.opendaylight.yangtools.concepts.ListenerRegistration;
 import org.opendaylight.yangtools.yang.binding.DataObject;
 import org.opendaylight.yangtools.yang.binding.InstanceIdentifier;
@@ -86,6 +88,7 @@ public class NetworkPortStatisticsServiceImpl implements NetworkPortStatisticsSe
         Long capacity = getCapacity(nodeConnector, readMeter(tpId, meterId));
         Long consumedBandwidth = getConsumedBandwidth(tpId, isHalfDuplex(nodeConnector));
         if (capacity == null || consumedBandwidth == null) return Long.valueOf(0);
+        logger.info(tpId + ":::" + capacity.toString() + "-" + consumedBandwidth.toString());
         return capacity - consumedBandwidth;
     }
 
@@ -104,6 +107,9 @@ public class NetworkPortStatisticsServiceImpl implements NetworkPortStatisticsSe
     private Long getCapacity(FlowCapableNodeConnector nodeConnector, Meter meter) {
         if (nodeConnector == null) return null;
         Long currentSpeed = nodeConnector.getCurrentSpeed();
+        if (currentSpeed == null) {
+            logger.error(nodeConnector.getName() + " current speed is null");
+        }
         if (meter == null) return currentSpeed;
         long bandRate = -1;
         for (MeterBandHeader band : meter.getMeterBandHeaders().getMeterBandHeader()) {
@@ -135,6 +141,7 @@ public class NetworkPortStatisticsServiceImpl implements NetworkPortStatisticsSe
             Long received = getCurrentRxSpeed(tpId, NetworkPortStatisticsService.Metric.BITSPERSECOND)
                     / 1000;
             if (null == transmitted || null == received) {
+                logger.info(tpId + "transmitted or received is null");
                 return Long.valueOf(0);
             }
             if (isHalfDuplex) {

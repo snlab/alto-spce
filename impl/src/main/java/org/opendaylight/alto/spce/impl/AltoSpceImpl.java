@@ -122,11 +122,12 @@ public class AltoSpceImpl implements AltoSpceService {
 
     private ErrorCodeType limitPathRate(Endpoint endpoint, int limitedRate, int burstSize) {
         LOG.info("In limit path rate");
-        List<TpId> path = new LinkedList<>(pathHashMap.get(endpoint));
+        //List<TpId> path = new LinkedList<>(pathHashMap.get(endpoint));
         //LOG.info("Path without meter is" + path.toString());
-        ErrorCodeType errorCode = removePath(endpoint);
+        ErrorCodeType errorCode = removePathForMeterSetup(endpoint);
         //We add the new flows with meter so path must be added back
-        pathHashMap.put(endpoint, path);
+        //pathHashMap.put(endpoint, path);
+        List<TpId> path = pathHashMap.get(endpoint);
         LOG.info("Path without meter is" + path.toString());
         if (errorCode== ErrorCodeType.ERROR) {
             return ErrorCodeType.ERROR;
@@ -522,6 +523,40 @@ public class AltoSpceImpl implements AltoSpceService {
             return ErrorCodeType.ERROR;
         }
         pathHashMap.remove(endpoint);
+        return ErrorCodeType.OK;
+    }
+
+    private ErrorCodeType removePathForMeterSetup(Endpoint endpoint) {
+        List<TpId> tpIds = pathHashMap.get(endpoint);
+        Match macMatch = parseMacMatch(endpoint);
+        Match ipMatch = parseIpMatch(endpoint);
+        if (macMatch == null | ipMatch == null) {
+            return ErrorCodeType.ERROR;
+        }
+        try {
+            for (TpId tpId : tpIds) {
+                NodeRef nodeRef =
+                        new NodeRef(InstanceIdentifier.builder(Nodes.class)
+                                .child(Node.class, new NodeKey(
+                                        new NodeId(tpId.getValue().substring(0, tpId.getValue().lastIndexOf(":")))))
+                                .build());
+                this.salFlowService.removeFlow(new RemoveFlowInputBuilder()
+                        .setMatch(macMatch)
+                        .setNode(nodeRef)
+                        .setTransactionUri(tpId)
+                        .build()
+                );
+                this.salFlowService.removeFlow(new RemoveFlowInputBuilder()
+                        .setMatch(ipMatch)
+                        .setNode(nodeRef)
+                        .build()
+                );
+            }
+        } catch (Exception e) {
+            LOG.info("Exception occurs when remove a path: " + e.getMessage());
+            return ErrorCodeType.ERROR;
+        }
+        //pathHashMap.remove(endpoint);
         return ErrorCodeType.OK;
     }
 

@@ -77,7 +77,7 @@ public class FlowManager {
     private int flowHardTimeout;
 
     private AtomicLong flowIdInc = new AtomicLong();
-    private AtomicLong flowCookieInc = new AtomicLong(0x2a00000000000000L);
+    private AtomicLong flowCookieInc = new AtomicLong(0x3a00000000000000L);
     private final short DEFAULT_TABLE_ID = 0;
     private final Integer DEFAULT_PRIORITY = 20;
     private final Integer DEFAULT_HARD_TIMEOUT = 3600;

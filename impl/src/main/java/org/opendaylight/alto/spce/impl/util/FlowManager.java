@@ -80,8 +80,8 @@ public class FlowManager {
     private AtomicLong flowCookieInc = new AtomicLong(0x3a00000000000000L);
     private final short DEFAULT_TABLE_ID = 0;
     private final Integer DEFAULT_PRIORITY = 20;
-    private final Integer DEFAULT_HARD_TIMEOUT = 3600;
-    private final Integer DEFAULT_IDLE_TIMEOUT = 1800;
+    private final Integer DEFAULT_HARD_TIMEOUT = 0;//3600;
+    private final Integer DEFAULT_IDLE_TIMEOUT = 0;//1800;
     private final Long OFP_NO_BUFFER = Long.valueOf(4294967295L);
 
     private MeterManager meterManager;

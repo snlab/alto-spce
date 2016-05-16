@@ -161,6 +161,7 @@ public class AltoSpceImpl implements AltoSpceService {
             ErrorCodeType setPathWithMeterCode = setupPathWithMeter(endpoint, limitedRate, burstSize, path);
             if (setPathWithMeterCode==ErrorCodeType.ERROR)
                 return ErrorCodeType.ERROR;
+            srcDstRequirementTable.put(src, dst, Integer.toString(limitedRate) + ':' + Integer.toString(burstSize));
         }
         return errorCode;
     }
@@ -193,7 +194,7 @@ public class AltoSpceImpl implements AltoSpceService {
 
     public Future<RpcResult<AltoSpceRemoveOutput>> altoSpceRemove(AltoSpceRemoveInput input) {
         String path = input.getPath();
-        ErrorCodeType errorCode = removePath(path);
+        ErrorCodeType errorCode = removePathNew(path);
 
         AltoSpceRemoveOutput output = new AltoSpceRemoveOutputBuilder()
                 .setErrorCode(errorCode)
@@ -341,22 +342,26 @@ public class AltoSpceImpl implements AltoSpceService {
     @Override
     public Future<RpcResult<RateLimitingUpdateOutput>> rateLimitingUpdate(RateLimitingUpdateInput input) {
         Endpoint endpoint = input.getEndpoint();
+        ErrorCodeType errorCode = ErrorCodeType.OK;
         String src = endpoint.getSrc().getValue();
         String dst = endpoint.getDst().getValue();
         String oldDropRateBurstSizeString = srcDstRequirementTable.get(src, dst);
-        String oldDropRateString = oldDropRateBurstSizeString.substring(0, oldDropRateBurstSizeString.indexOf(':'));
-        String oldBurstSizeString = oldDropRateBurstSizeString.substring(oldDropRateBurstSizeString.indexOf(':')+1);
-        int oldDropRate = Integer.parseInt(oldDropRateString);
-        int oldBurstSize = Integer.parseInt(oldBurstSizeString);
+        if (oldDropRateBurstSizeString!=null && !oldDropRateBurstSizeString.equals("-1:-1")) {
+            String oldDropRateString = oldDropRateBurstSizeString.substring(0, oldDropRateBurstSizeString.indexOf(':'));
+            String oldBurstSizeString = oldDropRateBurstSizeString.substring(oldDropRateBurstSizeString.indexOf(':') + 1);
+            int oldDropRate = Integer.parseInt(oldDropRateString);
+            int oldBurstSize = Integer.parseInt(oldBurstSizeString);
+            ErrorCodeType removeErrorCode = removePathWithMeter(endpoint, oldDropRate, oldBurstSize);
+            if (removeErrorCode == ErrorCodeType.OK) {
+                srcDstRequirementTable.remove(src, dst);
+            } else {
+                errorCode = ErrorCodeType.ERROR;
+            }
+        }
         int newDropRate = input.getLimitedRate();
         int newBurstSize = input.getBurstSize();
-        ErrorCodeType removeErrorCode = removePathWithMeter(endpoint, oldDropRate, oldBurstSize);
-        if (removeErrorCode == ErrorCodeType.OK) {
-            srcDstRequirementTable.remove(src, dst);
-        }
         ErrorCodeType setupErrorCode = limitPathRate(endpoint, newDropRate, newBurstSize);
-        ErrorCodeType errorCode = ErrorCodeType.OK;
-        if (removeErrorCode == ErrorCodeType.ERROR || setupErrorCode == ErrorCodeType.ERROR ) {
+        if (/*removeErrorCode == ErrorCodeType.ERROR || */setupErrorCode == ErrorCodeType.ERROR ) {
             errorCode = ErrorCodeType.ERROR;
         }
         RateLimitingUpdateOutput output = new RateLimitingUpdateOutputBuilder()
@@ -655,6 +660,79 @@ public class AltoSpceImpl implements AltoSpceService {
         return ErrorCodeType.OK;
     }
 
+    private ErrorCodeType removePathNew(String path) {
+        String src = path.substring(0, path.indexOf('|'));
+        String dst = path.substring(path.lastIndexOf('|')+1);
+        LOG.info(String.format("In removePath() from %s to %s", src, dst));
+        EndpointBuilder endpointBuilder = new EndpointBuilder()
+                .setSrc(new Ipv4Address(src))
+                .setDst(new Ipv4Address(dst));
+        List<TpId> tpIds = parseTpIds(path);
+        Match macMatch = parseMacMatch(path);
+        Match ipMatch = parseIpMatch(path);
+        if (macMatch == null | ipMatch == null) {
+            return ErrorCodeType.ERROR;
+        }
+        try {
+            for (TpId tpId : tpIds) {
+                NodeRef nodeRef =
+                        new NodeRef(InstanceIdentifier.builder(Nodes.class)
+                                .child(Node.class, new NodeKey(
+                                        new NodeId(tpId.getValue().substring(0, tpId.getValue().lastIndexOf(":")))))
+                                .build());
+                this.salFlowService.removeFlow(new RemoveFlowInputBuilder()
+                        .setMatch(macMatch)
+                        .setNode(nodeRef)
+                        .setTransactionUri(tpId)
+                        .build()
+                );
+                this.salFlowService.removeFlow(new RemoveFlowInputBuilder()
+                        .setMatch(ipMatch)
+                        .setNode(nodeRef)
+                        .build()
+                );
+            }
+        } catch (Exception e) {
+            LOG.info("Exception occurs when remove a path: " + e.getMessage());
+            return ErrorCodeType.ERROR;
+        }
+        if ((srcDstRequirementTable.get(src, dst)!=null)&&(!srcDstRequirementTable.get(src, dst).equals("-1:-1"))) {
+            Endpoint endpoint = endpointBuilder.build();
+            String oldDropRateBurstSizeString = srcDstRequirementTable.get(src, dst);
+            String oldDropRateString = oldDropRateBurstSizeString.substring(0, oldDropRateBurstSizeString.indexOf(':'));
+            String oldBurstSizeString = oldDropRateBurstSizeString.substring(oldDropRateBurstSizeString.indexOf(':')+1);
+            int oldDropRate = Integer.parseInt(oldDropRateString);
+            int oldBurstSize = Integer.parseInt(oldBurstSizeString);
+            srcDstRequirementTable.remove(src, dst);
+            try {
+                for (TpId tpId : tpIds) {
+                    NodeRef nodeRef =
+                            new NodeRef(InstanceIdentifier.builder(Nodes.class)
+                                    .child(Node.class, new NodeKey(
+                                            new NodeId(tpId.getValue().substring(0, tpId.getValue().lastIndexOf(":")))))
+                                    .build());
+                    String nc_value = tpId.getValue();
+                    InstanceIdentifier<NodeConnector> ncid = InstanceIdentifier.builder(Nodes.class)
+                            .child(
+                                    Node.class,
+                                    new NodeKey(new NodeId(nc_value.substring(0, nc_value.lastIndexOf(':')))))
+                            .child(
+                                    NodeConnector.class,
+                                    new NodeConnectorKey(new NodeConnectorId(nc_value)))
+                            .build();
+                    meterManager.removeMeterFromSwitch(endpoint, new NodeConnectorRef(ncid), nodeRef, oldDropRate, oldBurstSize);
+                }
+            } catch (Exception e) {
+                LOG.info("Exception occurs when remove a path: " + e.getMessage());
+                return ErrorCodeType.ERROR;
+            }
+        }
+        if ((srcDstRequirementTable.get(src, dst)!=null)) {
+            srcDstRequirementTable.remove(src,dst);
+        }
+        pathHashMap.remove(endpointBuilder.build());
+        return ErrorCodeType.OK;
+    }
 
     private List<TpId> computePath(Endpoint endpoint,
                                List<AltoSpceMetric> altoSpceMetrics,

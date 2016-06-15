@@ -84,6 +84,7 @@ public class AltoSpceImpl implements AltoSpceService {
     private HashMap<Endpoint, List<TpId>> pathHashMap = new HashMap<>();
     private Table<String, String, String> srcDstRequirementTable = HashBasedTable.create();
     private long BandwidthMap[][];
+    private ConfigDSFlowManager cdsFlowManager;
 
     public AltoSpceImpl(SalFlowService salFlowService,
                         SalMeterService salMeterService,
@@ -97,6 +98,7 @@ public class AltoSpceImpl implements AltoSpceService {
         this.flowManager = new FlowManager(salFlowService, this.meterManager);
         this.inventoryReader = new InventoryReader(dataBroker);
         this.pathComputation = new PathComputation(networkTrackerService);
+        this.cdsFlowManager = new ConfigDSFlowManager(dataBroker);
     }
 
     @Override
@@ -373,6 +375,26 @@ public class AltoSpceImpl implements AltoSpceService {
         }
         return RpcResultBuilder.success(output).buildFuture();
     }
+
+    @Override
+    public Future<RpcResult<AddFlowToSwitchOutput>> addFlowToSwitch(AddFlowToSwitchInput input) {
+        String switchId = input.getSwitchId();
+        NodeId nodeId = new NodeId(switchId);
+        this.cdsFlowManager.addFlow(nodeId,null);
+        AddFlowToSwitchOutput output = new AddFlowToSwitchOutputBuilder().setErrorCode(ErrorCodeType.OK).build();
+        return RpcResultBuilder.success(output).buildFuture();
+    }
+
+    @Override
+    public Future<RpcResult<RemoveAllFlowsToSwitchOutput>> removeAllFlowsToSwitch(RemoveAllFlowsToSwitchInput input) {
+        String switchId = input.getSwitchId();
+        NodeId nodeId = new NodeId(switchId);
+        InstanceIdentifier<org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.nodes.Node> nodeInstanceIdentifier = InstanceIdentifier.builder(Nodes.class)
+                .child(org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.nodes.Node.class, new NodeKey(nodeId)).build();
+        this.cdsFlowManager.removeFlows(new NodeRef(nodeInstanceIdentifier));
+        RemoveAllFlowsToSwitchOutput output = new RemoveAllFlowsToSwitchOutputBuilder().setErrorCode(ErrorCodeType.OK).build();
+        return RpcResultBuilder.success(output).buildFuture();
+ }
 
     private List<ConstraintMetric> compressConstraint(List<ConstraintMetric> constraintMetrics) {
         if (constraintMetrics == null)

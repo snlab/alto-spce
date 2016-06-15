@@ -550,4 +550,17 @@ public class FlowManager {
         builder.setTransactionUri(new Uri(flow.getId().getValue()));
         return salFlowService.addFlow(builder.build());
     }
+
+    private Future<RpcResult<AddFlowOutput>> writeFlowToConfigDataDirect(InstanceIdentifier<Flow> flowPath,
+                                                                   Flow flow) {
+        final InstanceIdentifier<Table> tableInstanceId = flowPath.<Table>firstIdentifierOf(Table.class);
+        final InstanceIdentifier<Node> nodeInstanceId = flowPath.<Node>firstIdentifierOf(Node.class);
+        final AddFlowInputBuilder builder = new AddFlowInputBuilder(flow);
+        builder.setNode(new NodeRef(nodeInstanceId));
+        builder.setFlowRef(new FlowRef(flowPath));
+        builder.setFlowTable(new FlowTableRef(tableInstanceId));
+        builder.setTransactionUri(new Uri(flow.getId().getValue()));
+        return salFlowService.addFlow(builder.build());
+    }
+
 }

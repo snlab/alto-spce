@@ -214,5 +214,31 @@ module alto-spce {
         }
     }
 
+    rpc add-flow-to-switch {
+        input {
+            leaf switch-id {
+                type string;
+            }
+        }
+        output {
+            leaf error-code {
+                type error-code-type;
+            }
+        }
+    }
+
+    rpc remove-all-flows-to-switch {
+        input {
+            leaf switch-id {
+                type string;
+            }
+        }
+        output {
+            leaf error-code {
+                type error-code-type;
+            }
+        }
+    }
+
 
 }

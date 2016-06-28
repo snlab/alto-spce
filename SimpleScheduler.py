@@ -1,7 +1,11 @@
 #!/usr/bin/env python
 
+import sys
 import pulp
 import time
+import random
+import itertools
+import networkx
 from numpy import array
 from odl.instance import ODLInstance
 from odl.altospce import ALTOSpce
@@ -17,6 +21,8 @@ DEFAULT_OPTS = {
 }
 
 # Test data
+TEST_REQ_NUM = 5
+
 TEST_REQUEST = {
     0: {
         'id': 0,
@@ -256,6 +262,43 @@ class Scheduler():
         self.update_policy(policy, requests)
         self.test_mode = mode
 
+def prepareRequestFromGraph(url):
+    global TEST_REQUEST, TEST_TX_PORT_BANDWIDTH
+    graph = networkx.read_graphml(url).to_undirected()
+    nodes = graph.nodes()
+    edges = list(set(graph.edges()))
+    hosts = [n for n in nodes if 2 == graph.degree()[n]]
+    # switchs = [n for n in nodes if n not in hosts]
+    links = {edges[n]:(2*n) for n in range(len(edges))}
+    links.update({(edges[n][1], edges[n][0]):(2*n+1) for n in range(len(edges))})
+    pairs = [p for p in itertools.permutations(hosts, 2)]
+    # requests = [random.choice(pairs) for i in range(TEST_REQ_NUM)]
+    TEST_REQUEST = {}
+    # print TEST_REQ_NUM
+    for i in range(TEST_REQ_NUM):
+        idx = random.choice(range(len(pairs)))
+        req = pairs.pop(idx)
+        source = req[0]
+        destination = req[1]
+        path = networkx.shortest_path(graph, source, destination)
+        route = [links[(path[j], path[j+1])] for j in range(len(path)-1)]
+        TEST_REQUEST[i] = {
+            'id': i,
+            'source': source,
+            'destination': destination,
+            'volume': random.randint(100000000, 800000000),
+            'lower': 0,
+            'upper': 10000000,
+            'route': route
+        }
+        # print i
+    # print TEST_REQUEST
+    TEST_TX_PORT_BANDWIDTH = [40000000 for i in range(len(links))]
+    # print links
+
 if '__main__' == __name__:
+    if len(sys.argv) > 2:
+        TEST_REQ_NUM = int(sys.argv[2])
+    prepareRequestFromGraph(sys.argv[1])
     scheduler = Scheduler()
     scheduler.test()

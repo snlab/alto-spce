@@ -11,7 +11,8 @@ TEST_REQUEST = {
         'volume': 100000,
         'lower': 0,
         'upper': 10000000,
-        'route': [0, 3, 4, 2, 1]
+    #    'route': [0, 3, 4, 2, 1]
+        'route': [0, 1]
     },
     1: {
   #      'id': 1,
@@ -38,7 +39,8 @@ TEST_REQUEST = {
         'volume': 700000,
         'lower': 3000000,
         'upper': 8000000,
-        'route': [3, 4, 2, 1]
+    #    'route': [3, 4, 2, 1]
+        'route': [0, 2, 1]
     },
 }
 
@@ -49,8 +51,8 @@ unsatRequests.insertReq(TEST_REQUEST[3])
 satRequests = Requests()
 satRequests.insertReq(TEST_REQUEST[2])
 
-print satRequests.reqList
+#print satRequests.reqList
 
 scheduler = MFRA()
-scheduler.MMFSolver([3, 2, 1], [0, 100, 100, 100, 0, 100, 100, 100, 0], \
+scheduler.MMFSolver([3, 2, 1], [0, 200000000, 200000000, 200000000, 0, 200000000, 200000000, 200000000, 0], \
                     unsatRequests.reqList, satRequests.reqList, 0.5)

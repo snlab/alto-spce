@@ -1,7 +1,7 @@
 import scipy
 print(scipy.__version__)
 import numpy
-from numpy import array
+from scipy.optimize import linprog
 
 class MFRA():
     def __init__(self):
@@ -31,7 +31,7 @@ class MFRA():
         one constraint for each link
         """
         capConstraints = numpy.zeros([numNodes*numNodes, numNodes*numNodes*numFlows+numFlows+1])
-        capUB = capacityList
+        capUB = numpy.zeros([numNodes*numNodes, 1])
 
         for i in range(nodeList.__len__()):
             for j in range(nodeList.__len__()):
@@ -48,7 +48,7 @@ class MFRA():
                         if mSat[m]['route'][x] == nodeList[i] and mSat[m]['route'][x+1] == nodeList[j]:
                             capConstraints[numNodes*i+j, numNodes*numNodes*flowIdx+numNodes*i+j] = 1
                     flowIdx += 1
-#                capUB[numNodes*i+j, 1] = capacityList[numNodes*i+j, 1]
+                capUB[numNodes*i+j, 0] = capacityList[numNodes*i+j]
 
         """
         M_unsat r constraints
@@ -78,7 +78,7 @@ class MFRA():
         numNodes*numNodes*numFlows constraints
         """
         routeConstraints = numpy.zeros([numNodes*numNodes*numFlows, numNodes*numNodes*numFlows+numFlows+1])
-        routeUB = numpy.zeros([numNodes*numNodes*numFlows, 1])
+        routeEQUB = numpy.zeros([numNodes*numNodes*numFlows, 1])
         flowIdx = 0
         for m in mUnsat.keys():
             for i in range(nodeList.__len__()):
@@ -122,7 +122,7 @@ class MFRA():
                             fConserveConstraints[numNodes*flowIdx+i, \
                                                     numNodes*numNodes*flowIdx+numNodes*j+i] = -1
                         fConserveConstraints[numNodes*flowIdx+i, numNodes*numNodes*numFlows+flowIdx] = -1
-                    elif nodeList[i] == mUnsat[m]['route'][nodeList.__len__()-1]:
+                    elif nodeList[i] == mUnsat[m]['route'][mUnsat[m]['route'].__len__()-1]:
                         for j in range(nodeList.__len__()):
                             fConserveConstraints[numNodes*flowIdx+i, \
                                                     numNodes*numNodes*flowIdx+numNodes*i+j] = 1
@@ -180,9 +180,25 @@ class MFRA():
             priUB[numFlows+flowIdx, 0] = mSat[m]['upper']
             flowIdx += 1
 
+
+        MMF_Aub = numpy.concatenate((capConstraints, rUnsatConstraints, priConstraints))
+        MMF_bub = numpy.concatenate((capUB, rUnsatUB, priUB))
+        MMF_Aeq = numpy.concatenate((rSatConstraints, routeConstraints, fConserveConstraints))
+        MMF_beq = numpy.concatenate((rSatEQUB, routeEQUB, fConserveEQUB))
+        #MMF_c = numpy.zeros([1, numNodes*numNodes*numFlows+numFlows+1])
+        #MMF_c[0, numNodes*numNodes*numFlows+numFlows] = 1
+
         print "finish constructing constraints"
-        print 1
 
 
+        MMF_Aub_list = MMF_Aub.tolist()
+        MMF_bub_list = MMF_bub.tolist()
+        MMF_Aeq_list = MMF_Aeq.tolist()
+        MMF_beq_list = MMF_beq.tolist()
+        MMF_c_list = [0]*(numNodes*numNodes*numFlows+numFlows+1)
+        MMF_c_list[numNodes*numNodes*numFlows+numFlows] = 1
 
+        res = linprog(MMF_c_list, A_ub=MMF_Aub_list, b_ub=MMF_bub_list, \
+                      A_eq=MMF_Aeq_list, b_eq=MMF_beq_list)
+        print (res)
 

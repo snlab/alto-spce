@@ -146,7 +146,7 @@ class MFRA():
                             fConserveConstraints[numNodes*flowIdx+i, \
                                                  numNodes*numNodes*flowIdx+numNodes*j+i] = -1
                         fConserveConstraints[numNodes*flowIdx+i, numNodes*numNodes*numFlows+flowIdx] = -1
-                    elif nodeList[i] == mSat[m]['route'][nodeList.__len__()-1]:
+                    elif nodeList[i] == mSat[m]['route'][mSat[m]['route'].__len__()-1]:
                         for j in range(nodeList.__len__()):
                             fConserveConstraints[numNodes*flowIdx+i, \
                                                  numNodes*numNodes*flowIdx+numNodes*i+j] = 1
@@ -180,9 +180,15 @@ class MFRA():
             priUB[numFlows+flowIdx, 0] = mSat[m]['upper']
             flowIdx += 1
 
+        """
+        z_t<=1 constraint
+        """
+        ztConstraint = numpy.zeros([1, numNodes*numNodes*numFlows+numFlows+1])
+        ztConstraint[0, numNodes*numNodes*numFlows+numFlows] = 1
+        ztUB = numpy.ones([1, 1])
 
-        MMF_Aub = numpy.concatenate((capConstraints, rUnsatConstraints, priConstraints))
-        MMF_bub = numpy.concatenate((capUB, rUnsatUB, priUB))
+        MMF_Aub = numpy.concatenate((capConstraints, rUnsatConstraints, priConstraints, ztConstraint))
+        MMF_bub = numpy.concatenate((capUB, rUnsatUB, priUB, ztUB))
         MMF_Aeq = numpy.concatenate((rSatConstraints, routeConstraints, fConserveConstraints))
         MMF_beq = numpy.concatenate((rSatEQUB, routeEQUB, fConserveEQUB))
         #MMF_c = numpy.zeros([1, numNodes*numNodes*numFlows+numFlows+1])

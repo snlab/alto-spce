@@ -6,41 +6,41 @@ from Scheduler import MFRA
 TEST_REQUEST = {
     0: {
    #     'id': 0,
-        'source': 0,
+        'source': 2,
         'destination': 1,
-        'volume': 100000,
+        'volume': 1,
         'lower': 0,
         'upper': 10000000,
     #    'route': [0, 3, 4, 2, 1]
-        'route': [0, 1]
+        'route': [2, 1]
     },
     1: {
   #      'id': 1,
-        'source': 0,
-        'destination': 8,
-        'volume': 200000,
-        'lower': 1000000,
+        'source': 1,
+        'destination': 3,
+        'volume': 1,
+        'lower': 0,
         'upper': 10000000,
-        'route': [0, 6, 4, 3, 8]
+        'route': [1, 2, 3]
     },
     2: {
   #      'id': 2,
-        'source': 3,
-        'destination': 8,
-        'volume': 300000,
-        'lower': 2000000,
+        'source': 1,
+        'destination': 3,
+        'volume': 1,
+        'lower': 0,
         'upper': 10000000,
-        'route': [3, 8]
+        'route': [1, 3]
     },
     3: {
  #       'id': 3,
         'source': 3,
         'destination': 1,
-        'volume': 700000,
-        'lower': 3000000,
+        'volume': 1,
+        'lower': 0,
         'upper': 8000000,
     #    'route': [3, 4, 2, 1]
-        'route': [0, 2, 1]
+        'route': [3, 2, 1]
     },
 }
 
@@ -54,5 +54,11 @@ satRequests.insertReq(TEST_REQUEST[2])
 #print satRequests.reqList
 
 scheduler = MFRA()
-scheduler.MMFSolver([3, 2, 1], [0, 200000000, 200000000, 200000000, 0, 200000000, 200000000, 200000000, 0], \
-                    unsatRequests.reqList, satRequests.reqList, 0.5)
+
+links = [3, 2, 1]
+capacity = [0, 5, 7, \
+            6, 0, 4, \
+            6, 9, 0]
+
+scheduler.MMFSolver(links, capacity, \
+                    unsatRequests.reqList, satRequests.reqList, 0)

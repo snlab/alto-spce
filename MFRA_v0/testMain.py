@@ -48,6 +48,7 @@ TEST_REQUEST = {
 unsatRequests = Requests()
 unsatRequests.insertReq(TEST_REQUEST[0])
 unsatRequests.insertReq(TEST_REQUEST[3])
+unsatRequests.insertReq(TEST_REQUEST[2])
 satRequests = Requests()
 satRequests.insertReq(TEST_REQUEST[2])
 
@@ -55,16 +56,20 @@ satRequests.insertReq(TEST_REQUEST[2])
 
 scheduler = MFRA()
 
+
 links = [3, 2, 1]
 capacity = [0, 5, 7, \
             6, 0, 4, \
             6, 9, 0]
-
+"""
 scheduler.MMFSolver(links, capacity, \
                     unsatRequests.reqList, satRequests.reqList, 0)
 capacity = [0, 5, 6, \
             6, 0, 3, \
-            0, 9, 0]
+            6, 9, 0]
 
 
 scheduler.testResidual(links, capacity, TEST_REQUEST[2])
+"""
+
+scheduler.getOneRoundSchedule(links, capacity, unsatRequests.reqList)

@@ -62,3 +62,9 @@ capacity = [0, 5, 7, \
 
 scheduler.MMFSolver(links, capacity, \
                     unsatRequests.reqList, satRequests.reqList, 0)
+capacity = [0, 5, 6, \
+            6, 0, 3, \
+            0, 9, 0]
+
+
+scheduler.testResidual(links, capacity, TEST_REQUEST[2])

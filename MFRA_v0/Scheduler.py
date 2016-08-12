@@ -222,3 +222,12 @@ class MFRA():
         print (res)
         return res
 
+    def testResidual(self, nodeList, capacityList, unsatFlow):
+        capRes = 1 #assume there is residual capacity
+        for x in range(unsatFlow['route'].__len__()-1):
+            i = nodeList.index(unsatFlow['route'][x])
+            j = nodeList.index(unsatFlow['route'][x+1])
+            if capacityList[i*nodeList.__len__()+j] <= 0:
+                capRes = 0
+                break
+        return capRes

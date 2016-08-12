@@ -12,7 +12,8 @@ TEST_REQUEST = {
         'lower': 0,
         'upper': 10000000,
     #    'route': [0, 3, 4, 2, 1]
-        'route': [2, 1]
+        'route': [2, 1],
+        'z': 0
     },
     1: {
   #      'id': 1,
@@ -21,7 +22,8 @@ TEST_REQUEST = {
         'volume': 1,
         'lower': 0,
         'upper': 10000000,
-        'route': [1, 3]
+        'route': [1, 3],
+        'z': 0
     },
     2: {
   #      'id': 2,
@@ -30,7 +32,8 @@ TEST_REQUEST = {
         'volume': 1,
         'lower': 0,
         'upper': 20000000,
-        'route': [1, 3]
+        'route': [1, 3],
+        'z': 0
     },
     3: {
  #       'id': 3,
@@ -40,7 +43,8 @@ TEST_REQUEST = {
         'lower': 0,
         'upper': 8000000,
     #    'route': [3, 4, 2, 1]
-        'route': [3, 1]
+        'route': [3, 1],
+        'z': 0
     },
 }
 

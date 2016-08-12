@@ -10,7 +10,7 @@ class MFRA():
     def updateReqs(self, newReqs):
         self.requests = newReqs
 
-    def MMFSolver(self, nodeList, capacityList, mUnsat, mSat, zSat, newAddedMSat, zSatm):
+    def MMFSolver(self, nodeList, capacityList, mUnsat, mSat):#, zSat, newAddedMSat, zSatm):
         """
         nodeList: a list of nodeID in increasing order
         capacityList: an adjacent matrix stored in 1D list
@@ -70,10 +70,10 @@ class MFRA():
         flowIdx = 0
         for m in mSat.keys():
             rSatConstraints[flowIdx, numNodes*numNodes*numFlows+mUnsat.__len__()+flowIdx] = 1
-            if m in newAddedMSat.keys():
-                rSatEQUB[flowIdx, 0] = mUnsat[m]['volume'] * zSatm
-            else:
-                rSatEQUB[flowIdx, 0] = mUnsat[m]['volume'] * zSat
+            #if m in newAddedMSat.keys():
+            rSatEQUB[flowIdx, 0] = mSat[m]['z']
+            #else:
+            #    rSatEQUB[flowIdx, 0] = mUnsat[m]['volume'] * zSat
             flowIdx += 1
 
         """
@@ -241,13 +241,12 @@ class MFRA():
     def getOneRoundSchedule(self, nodeList, capacityList, Flows):
         mUnsat = Flows
         mSat = {}
-        zSat = 0
         numNodes = nodeList.__len__()
         numFlows = Flows.__len__()
         while mUnsat.__len__() > 0:
-            res = self.MMFSolver(nodeList, capacityList, mUnsat, mSat, zSat, {}, 0)
-            residualCapacityList = self.updateCapacityList(res.x, capacityList, numNodes, numFlows)
+            print ("remaining size of mUnsat is ", mUnsat.__len__())
 
+            res = self.MMFSolver(nodeList, capacityList, mUnsat, mSat)
             """
             first move flows whose r_m is 1 to mSat
             """
@@ -255,34 +254,39 @@ class MFRA():
             for m in mUnsat.keys():
                 if res.x[numNodes*numNodes*numFlows+flowIdx] >= 1.0:
                     mSat[m] = mUnsat[m]
+                    mSat[m]['z'] = res.x[res.x.__len__()-1]
                 flowIdx += 1
             for m in mSat.keys():
-                del mUnsat[m]
+                mUnsat.pop(m, None)
 
             if mUnsat.__len__() == 0:
-                break
+                continue
 
             """
             Second perform residual test for each unsat flow and do things
             """
-            flowIdx = 0
+            #flowIdx = 0
+            residualCapacityList = self.updateCapacityList(res.x, capacityList, numNodes, numFlows)
             for m in mUnsat.keys():
                 """if there is no residual capacity for m"""
                 if self.testResidual(nodeList, residualCapacityList, mUnsat[m]) == 0:
                     tempMUnsat = mUnsat[m]
                     newAddedMSat = mUnsat.copy()
+                    for n in newAddedMSat.keys():
+                        newAddedMSat[n]['z'] = res.x[res.x.__len__()-1]
                     tempMSat = mSat.copy()
-                    tempMSat.update(mUnsat)
-                    del tempMSat[m]
-                    tempRes = self.MMFSolver(nodeList, capacityList, tempMUnsat, tempMSat, zSat, \
-                                             newAddedMSat, res.x[res.x.__len__()-1])
+                    tempMSat.update(newAddedMSat)
+                    tempMSat.pop(m, None)
+                    tempRes = self.MMFSolver(nodeList, capacityList, tempMUnsat, tempMSat)
                     if tempRes.fun == res.fun or \
                         abs(tempRes.fun - res.fun) <= 0.001:
                         mSat[m] = mUnsat[m]
-                        del mUnsat[m]
-                        zSat = res.x[res.x.__len__()-1]
-            print ('remaining size of mUnsat is ' mUnsat.__len__())
+                        mSat[m]['z'] = res.x[res.x.__len__()-1]
+                        mUnsat.pop(m, None)
+                        #zSat = res.x[res.x.__len__()-1]
 
+        allocRes = self.MMFSolver(nodeList, capacityList, mUnsat, mSat)
+        return allocRes
 
 
 

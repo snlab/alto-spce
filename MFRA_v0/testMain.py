@@ -21,7 +21,7 @@ TEST_REQUEST = {
         'volume': 1,
         'lower': 0,
         'upper': 10000000,
-        'route': [1, 2, 3]
+        'route': [1, 3]
     },
     2: {
   #      'id': 2,
@@ -29,7 +29,7 @@ TEST_REQUEST = {
         'destination': 3,
         'volume': 1,
         'lower': 0,
-        'upper': 10000000,
+        'upper': 20000000,
         'route': [1, 3]
     },
     3: {
@@ -40,7 +40,7 @@ TEST_REQUEST = {
         'lower': 0,
         'upper': 8000000,
     #    'route': [3, 4, 2, 1]
-        'route': [3, 2, 1]
+        'route': [3, 1]
     },
 }
 
